@@ -23,7 +23,8 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
 
   onPlanePosRef.current = onPlanePos;
 
-  const FLY_IN_DURATION = 5000;
+  // Adjusted by 15% slower visual movement (5000 / 0.85 ≈ 5880ms)
+  const FLY_IN_DURATION = 5880;
 
   useEffect(() => {
     if (phase === 'flying') {
@@ -92,7 +93,7 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
         }
         ctx.restore();
         if (!isCrashed) {
-          sunburstRotRef.current += 0.002;
+          sunburstRotRef.current += 0.0017;
         }
       }
 
@@ -124,7 +125,7 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
         let waveY = 0;
         let waveX = 0;
         if (waveActiveRef.current) {
-          waveY = height * 0.1 * Math.min(Math.max(elapsed - FLY_IN_DURATION, 0) / 2000, 1) * Math.sin(0.001 * elapsed);
+          waveY = height * 0.1 * Math.min(Math.max(elapsed - FLY_IN_DURATION, 0) / 2350, 1) * Math.sin(0.00085 * elapsed);
           waveX = (waveY < 0 ? -1 : 1) * Math.abs(waveY * 1.5);
         }
 
@@ -215,8 +216,8 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
         const isOffscreen = pos.x > width + planeW || pos.y < -planeH;
 
         if (!isOffscreen) {
-          pos.x += width * 0.015;
-          pos.y -= height * 0.010;
+          pos.x += width * 0.01275;
+          pos.y -= height * 0.0085;
         }
 
         if (onPlanePosRef.current) {
@@ -250,7 +251,7 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
       ctx.fill();
 
       if (isFlying && waveActiveRef.current && !isCrashed) {
-        gridDotsHorizRef.current -= 2;
+        gridDotsHorizRef.current -= 1.7;
         if (gridDotsHorizRef.current <= -horizSpacing) {
           gridDotsHorizRef.current = 0;
         }
@@ -267,7 +268,7 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
       ctx.fill();
 
       if (isFlying && waveActiveRef.current && !isCrashed) {
-        gridDotsVertRef.current += 2;
+        gridDotsVertRef.current += 1.7;
         if (gridDotsVertRef.current >= vertSpacing) {
           gridDotsVertRef.current = 0;
         }
