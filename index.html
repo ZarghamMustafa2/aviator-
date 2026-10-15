@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-brand="platform" data-skin="bpro" data-mode="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-visual" />
+    <meta name="color-scheme" content="light" />
+    <title>Teen Patti Studio — BetPro Exchange</title>
+    <link rel="icon" href="/assets/games/aviatorx-ref/plane.gif" type="image/gif" />
+    <link rel="preload" href="/fonts/RobotoCondensed-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/rajdhani-700.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Poppins-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Poppins-500.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // If opened directly via local file path (file:///), auto-redirect to local server
+      if (window.location.protocol === 'file:') {
+        window.location.href = 'http://localhost:5000';
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <div style="background:#0a0e17;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;text-align:center;padding:20px;">
+        <div style="font-size:24px;font-weight:700;color:#22c55e;margin-bottom:12px;">AVIATOR GAME SERVER</div>
+        <div style="font-size:15px;color:#cbd5e1;margin-bottom:20px;max-width:480px;line-height:1.5;">
+          This real-time game runs with an authoritative WebSocket backend.
+          <br />Redirecting to <a href="http://localhost:5000" style="color:#22c55e;text-decoration:underline;">http://localhost:5000</a>...
+        </div>
+        <a href="http://localhost:5000" style="background:#22c55e;color:#04221a;padding:12px 28px;border-radius:6px;font-weight:700;text-decoration:none;font-size:16px;">
+          Launch Game (http://localhost:5000)
+        </a>
+        <div style="margin-top:24px;font-size:13px;color:#64748b;">
+          Tip: Run <code>START_GAME.bat</code> or <code>npm start</code> to launch the server and open Chrome automatically.
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
