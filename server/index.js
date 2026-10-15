@@ -37,7 +37,7 @@ let userWallet = {
   }
 };
 
-// Seed initial history of 50 rounds
+// Seed initial history of 50 rounds (newest first)
 let historyRounds = [];
 for (let i = 0; i < 50; i++) {
   const seed = crypto.randomBytes(16).toString('hex');
@@ -49,11 +49,12 @@ for (let i = 0; i < 50; i++) {
     cp = Math.max(1.00, Math.min(30.00, Math.floor((0.97 / (1 - r)) * 100) / 100));
   }
   historyRounds.push({
+    round_id: 104500 - (i + 1),
     crash_point: cp,
     hash: hash,
     server_seed: seed,
     mode: 'auto',
-    crashed_at: new Date(Date.now() - (50 - i) * 35000).toISOString()
+    crashed_at: new Date(Date.now() - (i + 1) * 35000).toISOString()
   });
 }
 
@@ -344,16 +345,20 @@ function triggerCrash() {
   });
 
   const record = {
+    round_id: gameState.roundId,
     crash_point: gameState.crashPoint,
     hash: gameState.commitHash,
     server_seed: gameState.serverSeed,
     mode: 'auto',
     crashed_at: new Date().toISOString()
   };
-  historyRounds.unshift(record);
-  if (historyRounds.length > 50) historyRounds.pop();
+  if (!historyRounds.some(r => r.round_id === record.round_id)) {
+    historyRounds.unshift(record);
+    if (historyRounds.length > 50) historyRounds.pop();
+  }
 
   broadcastAll('crashed', {
+    roundId: gameState.roundId,
     crashPoint: gameState.crashPoint,
     seed: gameState.serverSeed,
     hash: gameState.commitHash,

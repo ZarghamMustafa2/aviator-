@@ -112,6 +112,75 @@ function generateSimBots() {
   return bets;
 }
 
+const RESULTS_STORAGE_KEY = 'aviator_results_history_v1';
+const CRASH_STORAGE_KEY = 'aviator_crash_history_v1';
+
+const INITIAL_SEEDED_CRASHES = [
+  2.15, 1.34, 4.20, 1.12, 15.68, 1.85, 2.76, 1.05, 3.12, 1.94,
+  1.45, 8.50, 1.20, 6.42, 2.05, 1.18, 3.45, 1.02, 5.80, 2.30,
+  1.67, 1.25, 4.90, 1.15, 12.40, 1.95, 2.10, 1.08, 3.80, 1.40,
+  1.55, 7.20, 1.30, 4.15, 2.65, 1.10, 2.85, 1.03, 6.10, 1.75,
+  1.88, 1.22, 3.95, 1.14, 9.30, 2.45, 1.50, 1.07, 4.50, 1.60
+];
+
+function generateInitialHistory() {
+  const baseId = 104520;
+  const now = Date.now();
+  const list = [];
+  for (let i = 0; i < 50; i++) {
+    const cp = INITIAL_SEEDED_CRASHES[i % INITIAL_SEEDED_CRASHES.length];
+    list.push({
+      round_id: baseId - (i + 1),
+      crash_point: cp,
+      hash: 'fair-seed-' + (baseId - (i + 1)),
+      server_seed: 'srv-' + (baseId - (i + 1)),
+      mode: 'auto',
+      crashed_at: new Date(now - (i + 1) * 35000).toISOString()
+    });
+  }
+  return list;
+}
+
+function getStoredDetailedHistory() {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(RESULTS_STORAGE_KEY) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.slice(0, 50);
+      }
+    }
+  } catch (e) {}
+  const initial = generateInitialHistory();
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(initial));
+    }
+  } catch (e) {}
+  return initial;
+}
+
+function getStoredCrashHistory(detailed) {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(CRASH_STORAGE_KEY) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.slice(0, 50);
+      }
+    }
+  } catch (e) {}
+  const list = (detailed && detailed.length > 0)
+    ? detailed.map(r => parseFloat(r.crash_point))
+    : INITIAL_SEEDED_CRASHES.slice(0, 15);
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(CRASH_STORAGE_KEY, JSON.stringify(list));
+    }
+  } catch (e) {}
+  return list;
+}
+
 export default function AviatorGame({ variant = 'x' }) {
   const isClassic = variant === 'classic';
   const gameTitle = isClassic ? 'Aviator' : 'AviatorX';
@@ -126,11 +195,15 @@ export default function AviatorGame({ variant = 'x' }) {
   const [multiplier, setMultiplier] = useState(1);
   const [countdown, setCountdown] = useState(0);
   const [crashPoint, setCrashPoint] = useState(0);
-  const [history, setHistory] = useState([
-    2.15, 1.34, 4.20, 1.12, 15.68, 1.85, 2.76, 1.05, 3.12, 1.94, 1.45, 8.50, 1.20, 6.42, 2.05
-  ]);
-  const [detailedHistory, setDetailedHistory] = useState([]);
-  const [roundId, setRoundId] = useState('104520');
+  const [detailedHistory, setDetailedHistory] = useState(() => getStoredDetailedHistory());
+  const [history, setHistory] = useState(() => getStoredCrashHistory());
+  const [roundId, setRoundId] = useState(() => {
+    const stored = getStoredDetailedHistory();
+    if (stored && stored.length > 0 && stored[0].round_id != null) {
+      return String(Number(stored[0].round_id) + 1);
+    }
+    return '104520';
+  });
   const [serverSeed, setServerSeed] = useState('');
   const [commitHash, setCommitHash] = useState('');
   const [isFair, setIsFair] = useState(true);
@@ -211,8 +284,25 @@ export default function AviatorGame({ variant = 'x' }) {
     fetch(`${apiPrefix}/history`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) {
-          setDetailedHistory(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setDetailedHistory(prev => {
+            const map = new Map();
+            data.forEach(item => {
+              if (item && item.round_id != null) map.set(String(item.round_id), item);
+            });
+            (prev || []).forEach(item => {
+              if (item && item.round_id != null && !map.has(String(item.round_id))) {
+                map.set(String(item.round_id), item);
+              }
+            });
+            const merged = Array.from(map.values())
+              .sort((a, b) => Number(b.round_id) - Number(a.round_id))
+              .slice(0, 50);
+            try {
+              localStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
         }
       })
       .catch(() => {});
@@ -244,12 +334,19 @@ export default function AviatorGame({ variant = 'x' }) {
           if (s.roundId) setRoundId(String(s.roundId));
           if (s.phase === 'crashed' && typeof s.multiplier === 'number') setCrashPoint(s.multiplier);
           if (s.commitHash || s.hash) setCommitHash(s.commitHash || s.hash);
-          if (s.history) setHistory(s.history);
+          if (s.history && Array.isArray(s.history)) {
+            const hist50 = s.history.slice(0, 50);
+            setHistory(hist50);
+            try {
+              localStorage.setItem(CRASH_STORAGE_KEY, JSON.stringify(hist50));
+            } catch (e) {}
+          }
           if (s.seed) setServerSeed(s.seed);
         })
         .catch(() => {});
 
       fetchLiveBets();
+      fetchHistory();
     }
 
     function processGameEvent(evt, payload) {
@@ -258,7 +355,13 @@ export default function AviatorGame({ variant = 'x' }) {
         if (payload.countdown !== undefined) setCountdown(payload.countdown);
         if (payload.roundId) setRoundId(String(payload.roundId));
         if (payload.commitHash || payload.hash) setCommitHash(payload.commitHash || payload.hash);
-        if (payload.history) setHistory(payload.history);
+        if (payload.history && Array.isArray(payload.history)) {
+          const hist50 = payload.history.slice(0, 50);
+          setHistory(hist50);
+          try {
+            localStorage.setItem(CRASH_STORAGE_KEY, JSON.stringify(hist50));
+          } catch (e) {}
+        }
         if (payload.onlineNow) setOnlineCount(Number(payload.onlineNow) || 247);
 
         if (payload.phase === 'betting' || payload.phase === 'flying') {
@@ -367,11 +470,18 @@ export default function AviatorGame({ variant = 'x' }) {
           setTimeout(() => setWinPopup(null), 2000);
         }
       } else if (evt === 'crashed') {
+        const cpNum = parseFloat(payload.crashPoint);
+        const cpFixed = isNaN(cpNum) ? 1.00 : cpNum;
+        const roundIdVal = payload.roundId != null ? String(payload.roundId) : String(roundId || Date.now());
+
         setPhase('crashed');
-        setCrashPoint(payload.crashPoint);
-        setMultiplier(payload.crashPoint);
+        setCrashPoint(cpFixed);
+        setMultiplier(cpFixed);
         setServerSeed(payload.seed || '');
         setIsFair(payload.fair !== false);
+        if (payload.roundId != null) {
+          setRoundId(String(payload.roundId));
+        }
 
         setBetState1(b => (b.placed && !b.cashedOut ? { ...b, placed: false } : b));
         setBetState2(b => (b.placed && !b.cashedOut ? { ...b, placed: false } : b));
@@ -385,16 +495,35 @@ export default function AviatorGame({ variant = 'x' }) {
           } catch (e) {}
         }
 
-        setDetailedHistory(prev => [
-          {
-            crash_point: payload.crashPoint,
-            hash: payload.hash,
-            server_seed: payload.seed,
+        // Update horizontal top history bar (newest first, max 50)
+        setHistory(prev => {
+          const list = [cpFixed, ...(prev || [])].slice(0, 50);
+          try {
+            localStorage.setItem(CRASH_STORAGE_KEY, JSON.stringify(list));
+          } catch (e) {}
+          return list;
+        });
+
+        // Update Last 50 Rounds Results table (newest first, unique by round_id, max 50)
+        setDetailedHistory(prev => {
+          const currentList = prev || [];
+          if (roundIdVal && currentList.some(r => String(r.round_id) === roundIdVal)) {
+            return currentList; // Prevent duplicate round
+          }
+          const newRecord = {
+            round_id: roundIdVal,
+            crash_point: cpFixed,
+            hash: payload.hash || ('hash-' + roundIdVal),
+            server_seed: payload.seed || ('seed-' + roundIdVal),
             mode: payload.mode || 'auto',
             crashed_at: new Date().toISOString()
-          },
-          ...(prev || [])
-        ].slice(0, 50));
+          };
+          const updated = [newRecord, ...currentList].slice(0, 50);
+          try {
+            localStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
+        });
       }
     }
 
@@ -402,7 +531,11 @@ export default function AviatorGame({ variant = 'x' }) {
     let simTimeout = null;
     let simInterval = null;
     let isSimulating = false;
-    let simRoundNumber = 104520;
+    const storedInitial = getStoredDetailedHistory();
+    const highestRound = storedInitial && storedInitial.length > 0 && storedInitial[0].round_id != null
+      ? Number(storedInitial[0].round_id)
+      : 104520;
+    let simRoundNumber = highestRound;
     let simBets = [];
     let simCrash = 2.10;
     let simFlightStart = 0;
@@ -562,9 +695,11 @@ export default function AviatorGame({ variant = 'x' }) {
     function runSimCrash() {
       if (!isSimulating || isClosed) return;
       processGameEvent('crashed', {
+        roundId: simRoundNumber,
         crashPoint: simCrash,
         seed: 'sim-seed-' + Math.random().toString(16).slice(2, 10),
         hash: 'sim-hash-' + Math.random().toString(16).slice(2, 10),
+        mode: 'auto',
         fair: true
       });
 
@@ -1144,7 +1279,7 @@ export default function AviatorGame({ variant = 'x' }) {
 
   // Render Results Tab
   function renderResultsTab() {
-    const list = detailedHistory.length > 0 ? detailedHistory.slice(0, 50) : history.slice(0, 50).map(cp => ({ crash_point: cp, mode: null }));
+    const list = detailedHistory.slice(0, 50);
 
     return (
       <div className="avtr-results-tab">
@@ -1155,13 +1290,15 @@ export default function AviatorGame({ variant = 'x' }) {
         </div>
         <div className="avtr-results-grid">
           {list.map((r, i) => {
-            const cpVal = parseFloat(r.crash_point);
-            const isAuto = r.mode == null ? null : r.mode === 'auto';
+            const cpVal = parseFloat(r.crash_point) || 1.00;
+            const isAuto = r.mode == null ? true : r.mode === 'auto';
             return (
               <div
                 className="avtr-result-cell"
                 style={{ borderColor: getResultBorderColor(cpVal), position: 'relative' }}
-                key={i}
+                key={r.round_id || i}
+                data-round-id={r.round_id}
+                data-crash-point={cpVal.toFixed(2)}
               >
                 <span style={{ color: getResultTextColor(cpVal) }}>
                   {cpVal.toFixed(2)}
