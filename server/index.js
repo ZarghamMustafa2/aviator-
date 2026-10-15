@@ -37,17 +37,23 @@ let userWallet = {
   }
 };
 
+// Provably fair calculation algorithm
+function calculateCrashPoint(hash) {
+  const hInt = parseInt(hash.slice(0, 13), 16);
+  const r = hInt / Math.pow(2, 52);
+  if (r < 0.04) {
+    return 1.00;
+  }
+  const raw = 0.97 / (1 - r);
+  return Math.max(1.00, Math.min(30.00, Math.floor(raw * 100) / 100));
+}
+
 // Seed initial history of 50 rounds (newest first)
 let historyRounds = [];
 for (let i = 0; i < 50; i++) {
-  const seed = crypto.randomBytes(16).toString('hex');
+  const seed = crypto.randomBytes(32).toString('hex');
   const hash = crypto.createHash('sha256').update(seed).digest('hex');
-  const hInt = parseInt(hash.slice(0, 13), 16);
-  const r = hInt / Math.pow(2, 52);
-  let cp = 1.00;
-  if (r >= 0.04) {
-    cp = Math.max(1.00, Math.min(30.00, Math.floor((0.97 / (1 - r)) * 100) / 100));
-  }
+  const cp = calculateCrashPoint(hash);
   historyRounds.push({
     round_id: 104500 - (i + 1),
     crash_point: cp,
@@ -75,18 +81,9 @@ let gameState = {
 
 function generateRoundHash() {
   gameState.roundId++;
-  gameState.serverSeed = crypto.randomBytes(16).toString('hex');
+  gameState.serverSeed = crypto.randomBytes(32).toString('hex');
   gameState.commitHash = crypto.createHash('sha256').update(gameState.serverSeed).digest('hex');
-
-  // Provably fair calculation
-  const hInt = parseInt(gameState.commitHash.slice(0, 13), 16);
-  const r = hInt / Math.pow(2, 52);
-  if (r < 0.04) {
-    gameState.crashPoint = 1.00;
-  } else {
-    const raw = 0.97 / (1 - r);
-    gameState.crashPoint = Math.max(1.00, Math.min(30.00, Math.floor(raw * 100) / 100));
-  }
+  gameState.crashPoint = calculateCrashPoint(gameState.commitHash);
 }
 
 generateRoundHash();
@@ -453,6 +450,44 @@ app.get('/api/aviator/history', (req, res) => {
 
 app.get('/api/aviator-classic/history', (req, res) => {
   res.json(historyRounds.slice(0, 50));
+});
+
+app.get('/api/aviator/verify', (req, res) => {
+  const seed = req.query.seed || '';
+  if (!seed) {
+    return res.status(400).json({ error: 'Seed query parameter required' });
+  }
+  const hash = crypto.createHash('sha256').update(seed).digest('hex');
+  const cp = calculateCrashPoint(hash);
+  const hInt = parseInt(hash.slice(0, 13), 16);
+  const r = hInt / Math.pow(2, 52);
+  res.json({
+    valid: true,
+    seed: seed,
+    hash: hash,
+    crashPoint: cp,
+    rFraction: r,
+    instantCrash: r < 0.04,
+    formula: 'r < 0.04 ? 1.00 : Math.max(1.00, Math.min(30.00, Math.floor((0.97 / (1 - r)) * 100) / 100))'
+  });
+});
+
+app.get('/api/aviator/round/:roundId', (req, res) => {
+  const targetId = Number(req.params.roundId);
+  const round = historyRounds.find(r => Number(r.round_id) === targetId);
+  if (!round) {
+    return res.status(404).json({ error: 'Round not found in recorded history' });
+  }
+  const computedHash = crypto.createHash('sha256').update(round.server_seed).digest('hex');
+  const computedCp = calculateCrashPoint(computedHash);
+  res.json({
+    round_id: round.round_id,
+    crash_point: round.crash_point,
+    server_seed: round.server_seed,
+    hash: round.hash,
+    verified: computedHash === round.hash && computedCp === round.crash_point,
+    crashed_at: round.crashed_at
+  });
 });
 
 app.post('/api/aviator/bet', (req, res) => {
