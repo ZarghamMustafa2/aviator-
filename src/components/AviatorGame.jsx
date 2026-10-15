@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import AviatorCanvas from './AviatorCanvas';
 import PlaneView from './PlaneView';
 import AviatorClassicStage from './AviatorClassicStage';
@@ -290,6 +290,55 @@ export default function AviatorGame({ variant = 'x' }) {
   const [calcCustomSeed, setCalcCustomSeed] = useState('');
   const [calcResult, setCalcResult] = useState(null);
 
+  // Risk Limits & Bet Monitoring State
+  const [riskLimits, setRiskLimits] = useState({
+    minBet: 10,
+    maxBet: 50000,
+    maxExposurePerRound: 1000000
+  });
+  const [exposureData, setExposureData] = useState(null);
+
+  // Dynamic real-time calculation of round bet monitoring metrics
+  const exposureMetrics = useMemo(() => {
+    const bets = liveBets || [];
+    const totalBets = bets.length;
+    let totalBetAmount = 0;
+    const uniqueUsers = new Set();
+    let totalPotentialPayout = 0;
+
+    bets.forEach((b) => {
+      const stake = Number(b.stake) || 0;
+      totalBetAmount += stake;
+      if (b.user || b.rawUser) uniqueUsers.add(b.user || b.rawUser);
+
+      if (b.status === 'cashed' && b.cashoutAt) {
+        totalPotentialPayout += stake * Number(b.cashoutAt);
+      } else if (b.status === 'lost') {
+        // 0 payout
+      } else {
+        const mult = (b.desiredCashout && Number(b.desiredCashout) > 1)
+          ? Math.min(Number(b.desiredCashout), 30.00)
+          : 30.00;
+        totalPotentialPayout += stake * mult;
+      }
+    });
+
+    const maxFinancialExposure = Math.max(0, Math.round(totalPotentialPayout - totalBetAmount));
+    const cap = riskLimits?.maxExposurePerRound || 1000000;
+    const utilization = cap > 0 ? Math.min(100, +((maxFinancialExposure / cap) * 100).toFixed(2)) : 0;
+    const isExposureCapped = maxFinancialExposure >= cap;
+
+    return {
+      totalBets: exposureData?.totalBets ?? totalBets,
+      totalBetAmount: exposureData?.totalBetAmount ?? Math.round(totalBetAmount),
+      activePlayers: exposureData?.activePlayers ?? uniqueUsers.size,
+      totalPotentialPayout: exposureData?.totalPotentialPayout ?? Math.round(totalPotentialPayout),
+      maxFinancialExposure: exposureData?.maxFinancialExposure ?? maxFinancialExposure,
+      exposureUtilization: exposureData?.exposureUtilization ?? utilization,
+      isExposureCapped: exposureData?.isExposureCapped ?? isExposureCapped
+    };
+  }, [liveBets, riskLimits, exposureData]);
+
   // User & Wallet
   const [balance, setBalance] = useState(50000);
   const [userProfile, setUserProfile] = useState({ username: 'Player777', balance: 50000 });
@@ -544,6 +593,11 @@ export default function AviatorGame({ variant = 'x' }) {
             multiplier: payload.multiplier
           });
           setTimeout(() => setWinPopup(null), 2000);
+        }
+      } else if (evt === 'exposure') {
+        setExposureData(payload);
+        if (payload.limits) {
+          setRiskLimits(payload.limits);
         }
       } else if (evt === 'crashed') {
         const cpNum = parseFloat(payload.crashPoint);
@@ -882,8 +936,18 @@ export default function AviatorGame({ variant = 'x' }) {
   useEffect(() => {
     if (activeTab === 'results') {
       fetchHistory();
+    } else if (activeTab === 'admin') {
+      fetch(`${apiPrefix}/admin/exposure`)
+        .then(r => r.json())
+        .then(d => {
+          if (d && !d.error) {
+            setExposureData(d);
+            if (d.limits) setRiskLimits(d.limits);
+          }
+        })
+        .catch(() => {});
     }
-  }, [activeTab, fetchHistory]);
+  }, [activeTab, fetchHistory, apiPrefix]);
 
   // Audio ambient player
   useEffect(() => {
@@ -960,11 +1024,27 @@ export default function AviatorGame({ variant = 'x' }) {
   const handlePlaceBet = useCallback((panel) => {
     const p = panel === 2 ? 2 : 1;
     const stake = Number(p === 1 ? amount1 : amount2) || 0;
-    if (stake < 10) {
-      alert('Enter bet amount (min 10)');
+    const minLimit = riskLimits?.minBet || 10;
+    const maxLimit = riskLimits?.maxBet || 50000;
+    const maxExposureLimit = riskLimits?.maxExposurePerRound || 1000000;
+
+    if (stake < minLimit) {
+      alert(`Minimum bet is ₹${minLimit}`);
       return;
     }
+    if (stake > maxLimit) {
+      alert(`Maximum bet limit is ₹${maxLimit.toLocaleString()}`);
+      return;
+    }
+
     const autoCo = p === 1 ? (autoCashout1 ? Math.max(MIN_AUTOCASHOUT, targetCashout1) : 0) : (autoCashout2 ? Math.max(MIN_AUTOCASHOUT, targetCashout2) : 0);
+    const targetMult = autoCo > 1 ? Math.min(autoCo, 30.00) : 30.00;
+    const incrementalExp = Math.max(0, (stake * targetMult) - stake);
+
+    if (exposureMetrics.maxFinancialExposure + incrementalExp > maxExposureLimit) {
+      alert(`Round exposure limit reached (₹${maxExposureLimit.toLocaleString()}). Bet cannot be accepted by Risk Engine.`);
+      return;
+    }
 
     fetch(`${apiPrefix}/bet`, {
       method: 'POST',
@@ -1009,16 +1089,19 @@ export default function AviatorGame({ variant = 'x' }) {
             id: betId,
             fid: betId,
             user: maskUser(userProfile?.username || 'Player777'),
+            rawUser: userProfile?.username || 'Player777',
             panel: p,
             stake: stake,
             status: 'active',
+            desiredCashout: autoCo,
             cashoutAt: null,
-            profit: null
+            profit: null,
+            isBot: false
           }, ...(prev || [])]);
           return bal - stake;
         });
       });
-  }, [amount1, amount2, autoCashout1, autoCashout2, targetCashout1, targetCashout2, apiPrefix, fetchWallet, userProfile]);
+  }, [amount1, amount2, autoCashout1, autoCashout2, targetCashout1, targetCashout2, apiPrefix, fetchWallet, userProfile, riskLimits, exposureMetrics]);
 
   const handleCashout = useCallback((panel) => {
     const p = panel === 2 ? 2 : 1;
@@ -1723,12 +1806,441 @@ export default function AviatorGame({ variant = 'x' }) {
           <div className="avtr-rule"><b>5.</b> If the plane crashes before you cash out, your bet is lost.</div>
           <div className="avtr-rule"><b>6.</b> Your winnings = Bet Amount x Cashout Multiplier.</div>
           <div className="avtr-rule"><b>7.</b> You can set an Auto Cashout — you'll be cashed out automatically the instant the multiplier reaches your chosen value (minimum 1.20x).</div>
-          <h3>LIMITS</h3>
-          <div className="avtr-rule">• Minimum bet is 10.</div>
-          <div className="avtr-rule">• Maximum bet and winnings are subject to your account's limits.</div>
+          <h3>LIMITS &amp; RISK MANAGEMENT</h3>
+          <div className="avtr-rule">• Minimum bet: ₹{riskLimits?.minBet || 10}</div>
+          <div className="avtr-rule">• Maximum single bet: ₹{formatNumber(riskLimits?.maxBet || 50000)}</div>
+          <div className="avtr-rule">• Maximum round exposure cap: ₹{formatNumber(riskLimits?.maxExposurePerRound || 1000000)} (Risk Engine blocks new bets if cap is reached)</div>
           <div className="avtr-rule">• The maximum multiplier is 30× — a round never goes higher, and an auto-cashout set above 30× will not trigger.</div>
+          <div className="avtr-rule">• Provably Fair: All round outcomes are cryptographically pre-committed before betting opens and are 100% independent of bets.</div>
           <div className="avtr-rules-warning">
             A good internet connection is required to play Aviator. If players are unable to cashout due to a poor internet connection, the bet will be settled as lost.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render Admin Bet Monitoring & Risk Management Tab
+  function renderAdminTab() {
+    const isFlying = phase === 'flying';
+    const isCrashed = phase === 'crashed';
+    const isBetting = phase === 'betting';
+
+    const phaseColor = isBetting ? '#22c55e' : isFlying ? '#38bdf8' : '#ef4444';
+    const phaseLabel = isBetting ? 'BETTING OPEN' : isFlying ? 'FLIGHT ACTIVE' : isCrashed ? 'CRASHED' : 'WAITING';
+
+    const utilPct = exposureMetrics.exposureUtilization || 0;
+    const progressColor = utilPct >= 90 ? '#ef4444' : utilPct >= 65 ? '#f59e0b' : '#22c55e';
+
+    return (
+      <div className="avtr-results-tab" style={{ padding: '16px 18px', overflowY: 'auto' }}>
+        {/* Top Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+            paddingBottom: 14,
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            marginBottom: 16
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 800, color: '#fff' }}>
+              <span>📊</span>
+              <span>Bet Monitoring &amp; Risk Engine</span>
+            </div>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>
+              Real-time exposure metrics, risk cap enforcement &amp; provably fair crash engine oversight
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: 20,
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: '#e2e8f0'
+              }}
+            >
+              Round #{roundId || '--'}
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: 20,
+                background: `${phaseColor}22`,
+                border: `1px solid ${phaseColor}55`,
+                color: phaseColor
+              }}
+            >
+              ● {phaseLabel}
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: 20,
+                background: 'rgba(34, 197, 94, 0.12)',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+                color: '#22c55e'
+              }}
+            >
+              🔒 FAIR ENGINE LOCKED
+            </span>
+          </div>
+        </div>
+
+        {/* 5 Key Metric Cards */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+            gap: 10,
+            marginBottom: 16
+          }}
+        >
+          {/* 1. Total Bets */}
+          <div
+            style={{
+              background: '#161b22',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 8,
+              padding: '12px 14px'
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Total Bets
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#38bdf8', marginTop: 4 }}>
+              {exposureMetrics.totalBets}
+            </div>
+            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+              Bets placed this round
+            </div>
+          </div>
+
+          {/* 2. Total Bet Amount */}
+          <div
+            style={{
+              background: '#161b22',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 8,
+              padding: '12px 14px'
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Total Bet Amount
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#22c55e', marginTop: 4 }}>
+              ₹{formatNumber(exposureMetrics.totalBetAmount)}
+            </div>
+            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+              Gross stakes volume
+            </div>
+          </div>
+
+          {/* 3. Number of Active Players */}
+          <div
+            style={{
+              background: '#161b22',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 8,
+              padding: '12px 14px'
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Active Players
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#a855f7', marginTop: 4 }}>
+              {exposureMetrics.activePlayers}
+            </div>
+            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+              Unique bettors in round
+            </div>
+          </div>
+
+          {/* 4. Total Potential Payout */}
+          <div
+            style={{
+              background: '#161b22',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 8,
+              padding: '12px 14px'
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Potential Payout
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b', marginTop: 4 }}>
+              ₹{formatNumber(exposureMetrics.totalPotentialPayout)}
+            </div>
+            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+              Max possible winnings
+            </div>
+          </div>
+
+          {/* 5. Maximum Financial Exposure */}
+          <div
+            style={{
+              background: '#161b22',
+              border: `1px solid ${exposureMetrics.isExposureCapped ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.08)'}`,
+              borderRadius: 8,
+              padding: '12px 14px'
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Max Financial Exposure
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: exposureMetrics.isExposureCapped ? '#ef4444' : '#06b6d4', marginTop: 4 }}>
+              ₹{formatNumber(exposureMetrics.maxFinancialExposure)}
+            </div>
+            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+              Net house liability
+            </div>
+          </div>
+        </div>
+
+        {/* Risk Management & Round Exposure Cap Monitor */}
+        <div
+          style={{
+            background: '#161b22',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 8,
+            padding: '14px 16px',
+            marginBottom: 16
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>
+              Round Financial Exposure Cap Monitor
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: progressColor }}>
+              {exposureMetrics.isExposureCapped
+                ? '⛔ EXPOSURE CAP REACHED (NEW BETS REJECTED)'
+                : `✔ ${utilPct.toFixed(1)}% OF CAP UTILIZED (HEALTHY)`}
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div
+            style={{
+              width: '100%',
+              height: 10,
+              background: 'rgba(255, 255, 255, 0.08)',
+              borderRadius: 5,
+              overflow: 'hidden',
+              marginBottom: 10
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.min(100, utilPct)}%`,
+                height: '100%',
+                background: progressColor,
+                transition: 'width 0.3s ease'
+              }}
+            />
+          </div>
+
+          {/* Limit Specs */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 8,
+              fontSize: 11,
+              color: '#94a3b8'
+            }}
+          >
+            <div>
+              <span>Current Liability: </span>
+              <b style={{ color: '#fff' }}>₹{formatNumber(exposureMetrics.maxFinancialExposure)}</b>
+              <span> / Max Exposure Limit: </span>
+              <b style={{ color: '#fff' }}>₹{formatNumber(riskLimits.maxExposurePerRound)}</b>
+            </div>
+            <div>
+              <span>Min Bet: </span>
+              <b style={{ color: '#fff' }}>₹{riskLimits.minBet}</b>
+              <span> | Max Single Bet: </span>
+              <b style={{ color: '#fff' }}>₹{formatNumber(riskLimits.maxBet)}</b>
+            </div>
+          </div>
+        </div>
+
+        {/* Provably Fair Result Engine Security Card */}
+        <div
+          style={{
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 8,
+            padding: '14px 16px',
+            marginBottom: 16
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>🛡️</span>
+              <span>Fair Crash Engine — Cryptographic Immutability</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const target = detailedHistory && detailedHistory.length > 0 ? detailedHistory[0] : null;
+                if (target) setVerifyModalRound(target);
+              }}
+              style={{
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                borderRadius: 6,
+                padding: '4px 10px',
+                fontSize: 11,
+                color: '#38bdf8',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Verify Outcome Algorithm
+            </button>
+          </div>
+
+          <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.5, marginBottom: 10 }}>
+            Every round outcome is generated securely <b>before betting opens</b> using a 256-bit cryptographically secure server seed. The crash result is mathematically derived strictly from the pre-committed SHA-256 hash and is <b>100% independent of total bets, individual stakes, player balances, or cash-out timing</b>.
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>
+                CURRENT ROUND PRE-COMMITTED SHA-256 HASH (PUBLISHED BEFORE BETS OPENED):
+              </div>
+              <div
+                style={{
+                  background: '#0d1117',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 6,
+                  padding: '6px 10px',
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  color: '#38bdf8',
+                  wordBreak: 'break-all'
+                }}
+              >
+                {commitHash || '--'}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>
+                SERVER SEED (DISCLOSED POST-CRASH FOR INDEPENDENT VERIFICATION):
+              </div>
+              <div
+                style={{
+                  background: '#0d1117',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 6,
+                  padding: '6px 10px',
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  color: isCrashed && serverSeed ? '#22c55e' : '#64748b',
+                  wordBreak: 'break-all'
+                }}
+              >
+                {isCrashed && serverSeed ? serverSeed : '🔒 Hidden during active round — revealed after flight crash'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Bets Breakdown in Active Round */}
+        <div
+          style={{
+            background: '#161b22',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 8,
+            overflow: 'hidden'
+          }}
+        >
+          <div
+            style={{
+              padding: '10px 14px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#f1f5f9'
+            }}
+          >
+            <span>Live Round Bets &amp; Exposure Breakdown ({liveBets.length})</span>
+            <span style={{ fontSize: 10, color: '#94a3b8' }}>Real-time updates</span>
+          </div>
+
+          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+            <table className="table" style={{ margin: 0, width: '100%', fontSize: 11 }}>
+              <thead>
+                <tr style={{ background: '#0f1218', color: '#94a3b8' }}>
+                  <th style={{ padding: '6px 10px' }}>User</th>
+                  <th style={{ padding: '6px 10px' }}>Stake</th>
+                  <th style={{ padding: '6px 10px' }}>Cashout At</th>
+                  <th style={{ padding: '6px 10px' }}>Max Payout</th>
+                  <th style={{ padding: '6px 10px' }}>Net Exposure</th>
+                  <th style={{ padding: '6px 10px' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {liveBets.slice(0, 50).map((b) => {
+                  const stake = Number(b.stake) || 0;
+                  const isCashed = b.status === 'cashed' && b.cashoutAt;
+                  const isLost = b.status === 'lost';
+                  const mult = isCashed ? Number(b.cashoutAt) : ((b.desiredCashout && Number(b.desiredCashout) > 1) ? Math.min(Number(b.desiredCashout), 30.00) : 30.00);
+                  const maxPayout = isLost ? 0 : Math.round(stake * mult);
+                  const netExp = isLost ? 0 : Math.max(0, maxPayout - stake);
+
+                  return (
+                    <tr key={b.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                      <td style={{ padding: '6px 10px', color: '#e2e8f0' }}>{b.user}</td>
+                      <td style={{ padding: '6px 10px', color: '#fff', fontWeight: 600 }}>₹{formatNumber(stake)}</td>
+                      <td style={{ padding: '6px 10px', color: isCashed ? '#22c55e' : '#94a3b8' }}>
+                        {isCashed ? `${Number(b.cashoutAt).toFixed(2)}x` : b.desiredCashout ? `${Number(b.desiredCashout).toFixed(2)}x` : '--'}
+                      </td>
+                      <td style={{ padding: '6px 10px', color: '#f59e0b' }}>₹{formatNumber(maxPayout)}</td>
+                      <td style={{ padding: '6px 10px', color: '#06b6d4' }}>₹{formatNumber(netExp)}</td>
+                      <td style={{ padding: '6px 10px' }}>
+                        <span
+                          style={{
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            fontSize: 9,
+                            fontWeight: 700,
+                            background: isCashed ? 'rgba(34, 197, 94, 0.15)' : isLost ? 'rgba(239, 68, 68, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                            color: isCashed ? '#22c55e' : isLost ? '#ef4444' : '#38bdf8'
+                          }}
+                        >
+                          {b.status?.toUpperCase() || 'ACTIVE'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {liveBets.length === 0 && (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '16px', color: '#64748b' }}>
+                      No bets placed yet in current round
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1797,7 +2309,7 @@ export default function AviatorGame({ variant = 'x' }) {
                   </div>
                   <div className="col-6 col-md-6 inline-block Gameidcol">
                     <div role="group" aria-label="Game tabs" className="btn-group btn-group-sm mr-2">
-                      {['Game', 'Results', 'Rules'].map((t) => (
+                      {['Game', 'Results', 'Rules', 'Admin'].map((t) => (
                         <button
                           type="button"
                           key={t}
@@ -1947,6 +2459,7 @@ export default function AviatorGame({ variant = 'x' }) {
 
                 {activeTab === 'results' && renderResultsTab()}
                 {activeTab === 'rules' && renderRulesTab()}
+                {activeTab === 'admin' && renderAdminTab()}
 
                 {!connected && !isSimActive && (
                   <div className="avtr-disconnected">Reconnecting...</div>

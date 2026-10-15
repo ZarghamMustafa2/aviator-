@@ -79,6 +79,56 @@ let gameState = {
   userBets: { 1: null, 2: null }
 };
 
+// Predefined Risk Management Limits
+let riskLimits = {
+  minBet: 10,
+  maxBet: 50000,
+  maxExposurePerRound: 1000000 // ₹1,000,000 max round financial exposure limit
+};
+
+// Calculate real-time financial exposure and round bet metrics
+function calculateExposureMetrics(bets = gameState.activeBets) {
+  const list = bets || [];
+  const totalBets = list.length;
+  let totalBetAmount = 0;
+  const uniqueUsers = new Set();
+  let totalPotentialPayout = 0;
+
+  for (const b of list) {
+    const stake = Number(b.stake) || 0;
+    totalBetAmount += stake;
+    if (b.user || b.rawUser) uniqueUsers.add(b.user || b.rawUser);
+
+    if (b.status === 'cashed' && b.cashoutAt) {
+      totalPotentialPayout += stake * Number(b.cashoutAt);
+    } else if (b.status === 'lost') {
+      // 0 payout
+    } else {
+      const targetMult = (b.desiredCashout && Number(b.desiredCashout) > 1)
+        ? Math.min(Number(b.desiredCashout), 30.00)
+        : 30.00;
+      totalPotentialPayout += stake * targetMult;
+    }
+  }
+
+  const maxFinancialExposure = Math.max(0, Math.round(totalPotentialPayout - totalBetAmount));
+  const utilization = riskLimits.maxExposurePerRound > 0
+    ? Math.min(100, +((maxFinancialExposure / riskLimits.maxExposurePerRound) * 100).toFixed(2))
+    : 0;
+  const isExposureCapped = maxFinancialExposure >= riskLimits.maxExposurePerRound;
+
+  return {
+    totalBets,
+    totalBetAmount: Math.round(totalBetAmount),
+    activePlayers: uniqueUsers.size,
+    totalPotentialPayout: Math.round(totalPotentialPayout),
+    maxFinancialExposure,
+    exposureUtilization: utilization,
+    isExposureCapped,
+    limits: { ...riskLimits }
+  };
+}
+
 function generateRoundHash() {
   gameState.roundId++;
   gameState.serverSeed = crypto.randomBytes(32).toString('hex');
@@ -110,6 +160,16 @@ function broadcast(channel, event, data) {
 function broadcastAll(event, data) {
   broadcast('game:aviator', event, data);
   broadcast('game:aviator-classic', event, data);
+}
+
+function broadcastExposure() {
+  broadcastAll('exposure', {
+    roundId: gameState.roundId,
+    phase: gameState.phase,
+    multiplier: gameState.multiplier,
+    commitHash: gameState.commitHash,
+    ...calculateExposureMetrics(gameState.activeBets)
+  });
 }
 
 wss.on('connection', (ws) => {
@@ -151,11 +211,20 @@ function maskUser(name) {
 function spawnBotBets() {
   const botCount = 20 + Math.floor(Math.random() * 25);
   const bets = [];
+  let botExposureSum = 0;
+  const maxBotExposure = riskLimits.maxExposurePerRound * 0.5; // Cap bots to 50% of round risk exposure
+
   for (let i = 0; i < botCount; i++) {
     const rawName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)] + (Math.floor(Math.random() * 900) + 100);
     const stake = [50, 100, 200, 500, 1000, 2000, 5000][Math.floor(Math.random() * 7)];
     // Random desired cashout between 1.10 and 20.00
     const desiredCashout = +(1.10 + Math.random() * Math.random() * 8).toFixed(2);
+    const estExposure = (stake * desiredCashout) - stake;
+    if (botExposureSum + estExposure > maxBotExposure) {
+      break;
+    }
+    botExposureSum += estExposure;
+
     const bet = {
       id: 'bot-' + Date.now() + '-' + i,
       fid: 'bot-' + i,
@@ -217,6 +286,7 @@ function startRoundCountdown() {
     history: historyRounds.map(r => r.crash_point),
     bets: formatActiveBetsForClient(gameState.activeBets)
   });
+  broadcastExposure();
 
   // Incrementally stream remaining bot bets across the 5s countdown
   let botIdx = 0;
@@ -471,8 +541,27 @@ app.get('/api/aviator/verify', (req, res) => {
     formula: 'r < 0.04 ? 1.00 : Math.max(1.00, Math.min(30.00, Math.floor((0.97 / (1 - r)) * 100) / 100))'
   });
 });
+app.get('/api/aviator-classic/verify', (req, res) => {
+  const seed = req.query.seed || '';
+  if (!seed) {
+    return res.status(400).json({ error: 'Seed query parameter required' });
+  }
+  const hash = crypto.createHash('sha256').update(seed).digest('hex');
+  const cp = calculateCrashPoint(hash);
+  const hInt = parseInt(hash.slice(0, 13), 16);
+  const r = hInt / Math.pow(2, 52);
+  res.json({
+    valid: true,
+    seed: seed,
+    hash: hash,
+    crashPoint: cp,
+    rFraction: r,
+    instantCrash: r < 0.04,
+    formula: 'r < 0.04 ? 1.00 : Math.max(1.00, Math.min(30.00, Math.floor((0.97 / (1 - r)) * 100) / 100))'
+  });
+});
 
-app.get('/api/aviator/round/:roundId', (req, res) => {
+function handleGetRound(req, res) {
   const targetId = Number(req.params.roundId);
   const round = historyRounds.find(r => Number(r.round_id) === targetId);
   if (!round) {
@@ -488,21 +577,92 @@ app.get('/api/aviator/round/:roundId', (req, res) => {
     verified: computedHash === round.hash && computedCp === round.crash_point,
     crashed_at: round.crashed_at
   });
-});
+}
+app.get('/api/aviator/round/:roundId', handleGetRound);
+app.get('/api/aviator-classic/round/:roundId', handleGetRound);
 
-app.post('/api/aviator/bet', (req, res) => {
+// Admin Monitoring & Risk Endpoints
+function handleAdminExposure(req, res) {
+  const metrics = calculateExposureMetrics(gameState.activeBets);
+  res.json({
+    roundId: gameState.roundId,
+    phase: gameState.phase,
+    multiplier: gameState.multiplier,
+    countdown: gameState.countdown,
+    commitHash: gameState.commitHash,
+    crashEngineLocked: true,
+    onlineNow: gameState.onlineNow,
+    ...metrics,
+    activeBets: gameState.activeBets.slice(0, 100)
+  });
+}
+app.get('/api/admin/exposure', handleAdminExposure);
+app.get('/api/aviator/admin/exposure', handleAdminExposure);
+app.get('/api/aviator-classic/admin/exposure', handleAdminExposure);
+
+function handleGetLimits(req, res) {
+  res.json({ limits: riskLimits });
+}
+app.get('/api/admin/limits', handleGetLimits);
+app.get('/api/aviator/admin/limits', handleGetLimits);
+app.get('/api/aviator-classic/admin/limits', handleGetLimits);
+
+function handleUpdateLimits(req, res) {
+  const { minBet, maxBet, maxExposurePerRound } = req.body;
+  if (minBet != null) {
+    const m = Number(minBet);
+    if (isNaN(m) || m < 1) return res.status(400).json({ error: 'minBet must be >= 1' });
+    riskLimits.minBet = Math.round(m);
+  }
+  if (maxBet != null) {
+    const m = Number(maxBet);
+    if (isNaN(m) || m < riskLimits.minBet) {
+      return res.status(400).json({ error: `maxBet must be >= minBet (${riskLimits.minBet})` });
+    }
+    riskLimits.maxBet = Math.round(m);
+  }
+  if (maxExposurePerRound != null) {
+    const m = Number(maxExposurePerRound);
+    if (isNaN(m) || m < riskLimits.maxBet) {
+      return res.status(400).json({ error: `maxExposurePerRound must be >= maxBet (${riskLimits.maxBet})` });
+    }
+    riskLimits.maxExposurePerRound = Math.round(m);
+  }
+  broadcastExposure();
+  res.json({ success: true, limits: riskLimits });
+}
+app.post('/api/admin/limits', handleUpdateLimits);
+app.post('/api/aviator/admin/limits', handleUpdateLimits);
+app.post('/api/aviator-classic/admin/limits', handleUpdateLimits);
+
+// Bet Placement with Pre-acceptance Risk Management
+function handlePlaceBet(req, res) {
   const { amount, panel, auto_cashout } = req.body;
   const stake = Number(amount) || 0;
   const p = Number(panel) === 2 ? 2 : 1;
 
-  if (stake < 10) {
-    return res.status(400).json({ error: 'Minimum bet is 10' });
+  if (stake < riskLimits.minBet) {
+    return res.status(400).json({ error: `Minimum bet is ₹${riskLimits.minBet}` });
+  }
+  if (stake > riskLimits.maxBet) {
+    return res.status(400).json({ error: `Maximum bet limit is ₹${riskLimits.maxBet.toLocaleString()}` });
   }
   if (stake > userWallet.balance) {
     return res.status(400).json({ error: 'Insufficient balance' });
   }
   if (gameState.phase !== 'betting') {
     return res.status(400).json({ error: 'Betting is closed for this round' });
+  }
+
+  // Pre-acceptance exposure validation: Never accept bets exceeding published round exposure cap
+  const targetMult = Number(auto_cashout) > 1 ? Math.min(Number(auto_cashout), 30.00) : 30.00;
+  const newBetExposure = Math.max(0, (stake * targetMult) - stake);
+  const currentMetrics = calculateExposureMetrics(gameState.activeBets);
+
+  if (currentMetrics.maxFinancialExposure + newBetExposure > riskLimits.maxExposurePerRound) {
+    return res.status(400).json({
+      error: `Round exposure limit reached (₹${riskLimits.maxExposurePerRound.toLocaleString()}). Bet cannot be accepted by Risk Engine.`
+    });
   }
 
   userWallet.balance -= stake;
@@ -542,10 +702,14 @@ app.post('/api/aviator/bet', (req, res) => {
     stake: stake
   });
 
-  res.json({ data: { betId } });
-});
+  broadcastExposure();
 
-app.post('/api/aviator/cashout', (req, res) => {
+  res.json({ data: { betId } });
+}
+app.post('/api/aviator/bet', handlePlaceBet);
+app.post('/api/aviator-classic/bet', handlePlaceBet);
+
+function handleCashout(req, res) {
   const p = Number(req.body.panel) === 2 ? 2 : 1;
   const ub = gameState.userBets[p];
 
@@ -581,15 +745,19 @@ app.post('/api/aviator/cashout', (req, res) => {
     fake: false
   });
 
+  broadcastExposure();
+
   res.json({
     data: {
       multiplier: currentMult,
       profit: ub.profit
     }
   });
-});
+}
+app.post('/api/aviator/cashout', handleCashout);
+app.post('/api/aviator-classic/cashout', handleCashout);
 
-app.post('/api/aviator/cancel', (req, res) => {
+function handleCancelBet(req, res) {
   const p = Number(req.body.panel) === 2 ? 2 : 1;
   const ub = gameState.userBets[p];
 
@@ -605,8 +773,12 @@ app.post('/api/aviator/cancel', (req, res) => {
   gameState.userBets[p] = null;
   gameState.activeBets = gameState.activeBets.filter(b => b.id !== ub.id);
 
+  broadcastExposure();
+
   res.json({ success: true });
-});
+}
+app.post('/api/aviator/cancel', handleCancelBet);
+app.post('/api/aviator-classic/cancel', handleCancelBet);
 
 // Serve static frontend in production
 app.use(express.static(path.join(__dirname, '..', 'dist')));
