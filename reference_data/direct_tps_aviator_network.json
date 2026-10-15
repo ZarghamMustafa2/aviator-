@@ -1,0 +1,321 @@
+[
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/TeenPattiStudio/game/aviator",
+    "method": "GET",
+    "resourceType": "document"
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/TeenPattiStudio/game/aviator",
+    "status": 200
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/RobotoCondensed-400-normal-latin-Cxzi1x1i.woff2",
+    "method": "GET",
+    "resourceType": "font"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/rajdhani-700-BPDUZo87.woff2",
+    "method": "GET",
+    "resourceType": "font"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/tpstudio-BPQXDLhP.js",
+    "method": "GET",
+    "resourceType": "script"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/jsx-runtime-tHiRxOvn.js",
+    "method": "GET",
+    "resourceType": "script"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/client-CBMQk18y.js",
+    "method": "GET",
+    "resourceType": "script"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/lucide-react-DAUqNF6I.js",
+    "method": "GET",
+    "resourceType": "script"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/client-2CkvQoHD.css",
+    "method": "GET",
+    "resourceType": "stylesheet"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/tpstudio-C4IiNa1K.css",
+    "method": "GET",
+    "resourceType": "stylesheet"
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/client-2CkvQoHD.css",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/tpstudio-C4IiNa1K.css",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/jsx-runtime-tHiRxOvn.js",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/lucide-react-DAUqNF6I.js",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/rajdhani-700-BPDUZo87.woff2",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/RobotoCondensed-400-normal-latin-Cxzi1x1i.woff2",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/client-CBMQk18y.js",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/tpstudio-BPQXDLhP.js",
+    "status": 200
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/Common/TeenPattiStudio?path=game%2Faviator",
+    "method": "GET",
+    "resourceType": "document"
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/Common/TeenPattiStudio?path=game%2Faviator",
+    "status": 200
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/main-B4rOodc1.js",
+    "method": "GET",
+    "resourceType": "script"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/jsx-runtime-tHiRxOvn.js",
+    "method": "GET",
+    "resourceType": "script"
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/jsx-runtime-tHiRxOvn.js",
+    "status": 200
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/client-CBMQk18y.js",
+    "method": "GET",
+    "resourceType": "script"
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/client-CBMQk18y.js",
+    "status": 200
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/client-2CkvQoHD.css",
+    "method": "GET",
+    "resourceType": "stylesheet"
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/client-2CkvQoHD.css",
+    "status": 200
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/main-6E1KPjyS.css",
+    "method": "GET",
+    "resourceType": "stylesheet"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/styles.css?v=1791996256067",
+    "method": "GET",
+    "resourceType": "stylesheet"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/app.js?v=1791996256067",
+    "method": "GET",
+    "resourceType": "script"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/assets/icons/bp-logo.png",
+    "method": "GET",
+    "resourceType": "image"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/all.min-uIHaOwR2.css",
+    "method": "GET",
+    "resourceType": "stylesheet"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/v4-shims.min-i9xVtVrs.css",
+    "method": "GET",
+    "resourceType": "stylesheet"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/api/manifest.json",
+    "method": "GET",
+    "resourceType": "manifest"
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/assets/icons/bp-logo.png",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/main-6E1KPjyS.css",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/styles.css?v=1791996256067",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/main-B4rOodc1.js",
+    "status": 200
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/RobotoCondensed-400-normal-latin-Cxzi1x1i.woff2",
+    "method": "GET",
+    "resourceType": "font"
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/RobotoCondensed-400-normal-latin-Cxzi1x1i.woff2",
+    "status": 200
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/assets/icons/bg-diamonds2.png",
+    "method": "GET",
+    "resourceType": "image"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/Poppins-400-normal-latin-cpxAROuN.woff2",
+    "method": "GET",
+    "resourceType": "font"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/Poppins-500-normal-latin-C8OXljZJ.woff2",
+    "method": "GET",
+    "resourceType": "font"
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/api/manifest.json",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/all.min-uIHaOwR2.css",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/v4-shims.min-i9xVtVrs.css",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/assets/icons/bg-diamonds2.png",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/Poppins-400-normal-latin-cpxAROuN.woff2",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/Poppins-500-normal-latin-C8OXljZJ.woff2",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/app.js?v=1791996256067",
+    "status": 200
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/api/config",
+    "method": "GET",
+    "resourceType": "fetch"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/api/me",
+    "method": "GET",
+    "resourceType": "fetch"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/assets/icons/app/icon-192.png",
+    "method": "GET",
+    "resourceType": "other"
+  },
+  {
+    "type": "req",
+    "url": "https://www.bpro.life/react-assets/favicon-CO8qYVLk.ico",
+    "method": "GET",
+    "resourceType": "other"
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/react-assets/favicon-CO8qYVLk.ico",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/assets/icons/app/icon-192.png",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/api/config",
+    "status": 200
+  },
+  {
+    "type": "res",
+    "url": "https://www.bpro.life/api/me",
+    "status": 401
+  }
+]

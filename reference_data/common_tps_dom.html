@@ -1,0 +1,419 @@
+<!DOCTYPE html><html lang="en" class="ref-ui" style="--bp-green: #00b181; --user-blue: #214f70; --dealer-side: #214f70; --dealer-active: #685ab0; --user-bg: #dff0fa;"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-visual">
+    <!-- ⭐ BROWSER KO APNI MARZI SE RANG ULATNE SE ROKO.
+         Maalik (2026-08-10): "browser change karo tu aisi black aata ha. Colour
+         to ek hi hona chahiye jahan marzi open karo."
+
+         Wajah: Chrome (Android) ka "Auto dark theme" aur Samsung Internet ka dark
+         mode aise safhe ke rang KHUD ULAT dete hain jo ye nahi batate ke wo kis
+         rang ki scheme ke liye bane hain. Hamari poori site halke rang par bani
+         hai (safed card, #e4e5e6 safha) — magar hum ne wo kabhi ELAAN nahi kiya.
+
+         `color-scheme: light` se browser force-dark band kar deta hai. Ye standard
+         hai — Chrome, Samsung Internet, Safari, Firefox sab maante hain. -->
+    <meta name="color-scheme" content="light">
+    <title>BetPro Exchange</title>
+    <link rel="icon" href="/react-assets/favicon-CO8qYVLk.ico" type="image/x-icon">
+    <link rel="manifest" href="/api/manifest.json">
+    <!-- ⭐ boss 07-09 BPexch APP: installable (Android Chrome install / iPhone Add to Home Screen) -->
+    <meta name="theme-color" content="#214f70">
+    <meta name="application-name" content="BPexch">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="BPexch">
+    <link rel="apple-touch-icon" href="/react-assets/apple-touch-icon-DBLU_0_M.png">
+    <!-- SELF-HOSTED web fonts (boss 2026-08-17, item 3): the Google Fonts CDN was removed — both
+         its origins are gone. Reason: an altered CDN asset is style/script injection, and the token
+         lives in localStorage, so any injection = takeover. The Google Fonts CDN can't take SRI (its
+         css2 response varies by User-Agent), so "not having it" (self-host) is the only real fix. -->
+    <!-- Font Awesome ab SELF-HOSTED (boss 2026-08-17, perf): pehle cdnjs se 2 external request +
+         DNS/TLS jate the; ab same-origin (Cloudflare edge par cached). woff2 fonts assets/fontawesome/. -->
+    <link rel="stylesheet" href="/react-assets/all.min-uIHaOwR2.css" media="all" onload="this.media='all'">
+    <link rel="stylesheet" href="/react-assets/v4-shims.min-i9xVtVrs.css" media="all" onload="this.media='all'">
+    <noscript>
+    </noscript>
+    <script type="module" crossorigin="" src="/react-assets/main-B4rOodc1.js"></script>
+    <link rel="modulepreload" crossorigin="" href="/react-assets/jsx-runtime-tHiRxOvn.js">
+    <link rel="modulepreload" crossorigin="" href="/react-assets/client-CBMQk18y.js">
+    <link rel="stylesheet" crossorigin="" href="/react-assets/client-2CkvQoHD.css">
+    <link rel="stylesheet" crossorigin="" href="/react-assets/main-6E1KPjyS.css">
+      <link rel="preload" href="/styles.css?v=1791996256067" as="style">
+    <link rel="preload" href="/app.js?v=1791996256067" as="script">
+      <style id="crit-login">:root { color-scheme: light; }
+
+html, body { background: #e4e5e6; }
+
+:root {
+  --bp-green: #00b181;
+  --user-blue: #214f70;
+  --user-blue-2: #1b4667;
+  --user-bg: #dff0fa;
+  --dealer-side: #2c353a;
+  --dealer-active: #10a9cf;
+  --dealer-bg: #e5e8ea;
+  --line: #bfccd4;
+  --text: #101820;
+  --muted: #607083;
+  --back: #79cbe4;
+  --lay: #ffadb8;
+}
+
+/* (Aviator casino CSS removed 2026-08-22 — purana casino complete remove.) */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: #23282c;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+/* Login — a declaration-for-declaration copy of bpexch.live/Users/Login.
+   Their layout is reproduced by copying the CSS itself (flex container + a percentage
+   margin under the card), NOT by hard-coding the positions it happens to produce — that
+   way every viewport lands where theirs does instead of only the ones we measured. */
+.login-screen {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  font-family: "Poppins", system-ui, "Segoe UI", sans-serif;
+  background-color: #2b2b2b;
+  background-image: url("/assets/icons/bg-diamonds2.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.login-card {
+  width: 400px;
+  max-width: 100%;
+  padding: 55px 55px 37px;
+  /* percentage of the container's WIDTH — this is what lifts the card above true centre,
+     and why it tracks the viewport the way theirs does */
+  margin-bottom: 10%;
+  border-radius: 10px;
+  background: linear-gradient(#3e6d8d, #121d30);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.bp-logo-link {
+  display: block;
+  /* pulled 20px up out of the card's top padding, exactly like their logo span */
+  margin: -20px auto 20px;
+  line-height: 0;
+}
+
+.bp-logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 60px;
+  object-fit: cover;
+  display: block;
+}
+
+.login-field {
+  position: relative;
+  width: 100%;
+  height: 47px;
+  border-bottom: 2px solid rgba(255, 255, 255, .24);
+  color: #fff;
+  margin: 0 0 30px;
+}
+
+/* Sits over the field: carries the icon AND the underline that sweeps in on focus. */
+.login-focus {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.login-focus::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 45px;
+  width: 0;
+  height: 2px;
+  background: #fff;
+  transition: .4s;
+}
+
+.login-field input:focus ~ .login-focus::before {
+  width: 100%;
+}
+
+/* 22px = the font-size bpexch renders the glyph at; top 10px lands it on the same baseline
+   their text-rendered icon sits on (verified by pixel-measuring both cards). */
+.login-ico {
+  position: absolute;
+  left: 5px;
+  top: 10px;
+  width: 22px;
+  height: 22px;
+  fill: #fff;
+}
+
+.login-field input {
+  display: block;
+  width: 100%;
+  height: 45px;
+  padding: 0 5px 0 38px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 400;
+  /* !important is required: a global `html, body, button, input, select, textarea` rule
+     also uses !important, so only a more specific !important rule can win it back. */
+  font-family: "Poppins", system-ui, "Segoe UI", sans-serif !important;
+}
+
+.login-field input::placeholder {
+  color: #fff;
+  opacity: 1;
+}
+
+/* Keep autofilled inputs transparent with white text (no Chrome white/yellow box) */
+.login-field input:-webkit-autofill,
+.login-field input:-webkit-autofill:hover,
+.login-field input:-webkit-autofill:focus,
+.login-field input:-webkit-autofill:active {
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  -webkit-box-shadow: 0 0 0 1000px transparent inset;
+  transition: background-color 100000s ease-in-out 0s;
+  background-clip: content-box;
+}
+
+.login-btn-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.login-btn {
+  width: 120px;
+  height: 50px;
+  /* no top margin — the 30px under the password field is the whole gap, as on bpexch */
+  margin: 0;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 25px;
+  background-image: linear-gradient(to top, #3e6d8d, #121d30);
+  color: rgba(255, 255, 255, .9);
+  font-size: 16px;
+  font-weight: 500; /* their button ships as Poppins-Medium */
+  font-family: "Poppins", system-ui, "Segoe UI", sans-serif !important;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, .2), 0 6px 20px rgba(0, 0, 0, .6);
+}
+
+.login-btn[disabled] {
+  opacity: .7;
+  cursor: default;
+}
+
+/* Remember Me (boss 2026-08-27): tick par id/password device me save — agli dafa pehle se likha aaye.
+   ⭐ boss 17-09: control HIDE — markup bhi nahi banta; ye rule purane cached bundle ke liye pehra hai. */
+.login-remember { display: none !important; }
+.login-remember-legacy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 14px 0 0;
+  color: rgba(255, 255, 255, .85);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+.login-remember input {
+  width: 15px;
+  height: 15px;
+  accent-color: #3e6d8d;
+  cursor: pointer;
+}
+
+/* Bottom band: a 6px accent line over a dark strip, the way bpexch closes the page.
+   Their strip also carries licence badges — deliberately not copied (see logs/2026-08-07). */
+/* absolute, exactly like theirs — in normal flow it would become a second flex line and
+   shove the card off centre */
+.login-footer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  background: #333;
+  height: 45px;
+}
+
+.login-footer-line {
+  height: 6px;
+  margin-top: -4px;
+  background: #254465;
+}
+
+@media (max-width: 600px) {
+  /* their small-screen switch: the flex line goes to the TOP instead of the middle, so the
+     card sits just under the 15px padding the way it does on a phone */
+  .login-screen {
+    align-content: space-between;
+  }
+
+  .login-card {
+    padding: 55px 15px 37px;
+    margin-bottom: 15%;
+  }
+}
+html.bp-has-session #login-shell{display:none!important}</style>
+    <script>try{if(localStorage.getItem("bp_hasSession"))document.documentElement.classList.add("bp-has-session")}catch(e){}</script>
+  <link id="legacy-bpexch-styles" rel="stylesheet" href="/styles.css?v=1791996256067"></head>
+  <body>
+    <div id="root"><div id="app" class="legacy-app-host">
+    <div class="login-screen">
+      <form class="login-card" onsubmit="handleLogin(event)">
+        <a class="bp-logo-link" href="/Login" onclick="event.preventDefault()">
+          <img class="bp-logo" src="/assets/icons/bp-logo.png" alt="BP">
+        </a>
+        <div class="login-field">
+          <input name="username" placeholder="Username" autocomplete="username" required="">
+          <span class="login-focus"><svg class="login-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.828125 10.875Q9.65625 12.046875 7.9921875 12.046875Q6.328125 12.046875 5.15625 10.875Q3.984375 9.703125 3.984375 8.0390625Q3.984375 6.375 5.15625 5.203125Q6.328125 4.03125 7.9921875 4.03125Q9.65625 4.03125 10.828125 5.203125Q12.0 6.375 12.0 8.0390625Q12.0 9.703125 10.828125 10.875ZM15.984375 18.046875V20.0625H0.0V18.046875Q0.0 16.828125 1.4765625 15.8671875Q2.953125 14.90625 4.734375 14.484375Q6.515625 14.0625 7.9921875 14.0625Q9.46875 14.0625 11.25 14.484375Q13.03125 14.90625 14.5078125 15.8671875Q15.984375 16.828125 15.984375 18.046875Z"></path></svg></span>
+        </div>
+        <div class="login-field">
+          <input name="password" type="password" placeholder="Password" autocomplete="current-password" required="">
+          <span class="login-focus"><svg class="login-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.015625 8.0625Q14.8125 8.0625 15.3984375 8.6484375Q15.984375 9.234375 15.984375 10.03125V20.0625Q15.984375 20.859375 15.3984375 21.4453125Q14.8125 22.03125 14.015625 22.03125H2.015625Q1.171875 22.03125 0.5859375 21.4453125Q0.0 20.859375 0.0 20.0625V10.03125Q0.0 9.234375 0.5859375 8.6484375Q1.171875 8.0625 2.015625 8.0625H3.0V6.046875Q3.0 3.984375 4.4765625 2.5078125Q5.953125 1.03125 8.015625 1.03125Q10.078125 1.03125 11.53125 2.5078125Q12.984375 3.984375 12.984375 6.046875V8.0625ZM6.5859375 16.4765625Q7.171875 17.0625 7.9921875 17.0625Q8.8125 17.0625 9.3984375 16.4765625Q9.984375 15.890625 9.984375 15.046875Q9.984375 14.203125 9.3984375 13.6171875Q8.8125 13.03125 7.9921875 13.03125Q7.171875 13.03125 6.5859375 13.6171875Q6.0 14.203125 6.0 15.046875Q6.0 15.890625 6.5859375 16.4765625ZM11.109375 8.0625V6.046875Q11.109375 4.78125 10.1953125 3.8671875Q9.28125 2.953125 7.9921875 2.953125Q6.703125 2.953125 5.8125 3.8671875Q4.921875 4.78125 4.921875 6.046875V8.0625Z"></path></svg></span>
+        </div>
+        <div class="login-btn-wrap">
+          <button class="login-btn" type="submit">Login</button>
+        </div>
+        <div class="login-error"></div>
+      </form>
+      
+      <footer class="login-footer"><div class="login-footer-line"></div>
+        <div class="login-device-id" style="margin-top:10px;font-size:11px;opacity:.5;text-align:center">
+          <a href="#" onclick="bpRevealDeviceId(event)" style="color:inherit;text-decoration:underline">Show this device's ID</a>
+          <div id="bp-device-id-out" style="margin-top:4px;font-family:monospace;word-break:break-all"></div>
+        </div>
+      </footer>
+    </div></div></div>
+    
+    <script>/* FIX-C M1' — static login-shell handoff (injected inline into index.html by vite injectLoginShell).
+   Paints a pixel-identical login BEFORE the React bundle + legacy app.js execute (cold-FCP win),
+   then hands off seamlessly when app.js renders the real login/dashboard. No framework, runs at parse. */
+(function () {
+  var shell = document.getElementById("login-shell");
+  if (!shell) return;
+
+  // Returning user (has logged in on this browser): app.js boots straight to the dashboard, so DON'T
+  // flash a login shell first. Hide it immediately; the boot-splash/dashboard shows through.
+  // (httpOnly token is unreadable from JS; this JS-readable hint mirrors it — set at login, cleared at logout.)
+  try { if (localStorage.getItem("bp_hasSession")) { shell.parentNode.removeChild(shell); return; } } catch (e) {}
+
+  // Remember Me (boss 2026-08-27): shell-phase me bhi saved id/pass pehle se bhara dikhe
+  // (warna 1-2 second khali dikh kar phir bhar jata — flash). Sirf khali khane bharta hai.
+  try {
+    var sv = JSON.parse(localStorage.getItem("bp_savedLogin") || "null");
+    if (sv) {
+      var ui = shell.querySelector('input[name="username"]');
+      var pi = shell.querySelector('input[name="password"]');
+      if (ui && !ui.value) ui.value = String(sv.u || "");
+      if (pi && !pi.value) pi.value = String(sv.p || "");
+      var ci = shell.querySelector("#bp-remember-me");
+      if (ci) ci.checked = true;
+    }
+  } catch (e) { /* private mode */ }
+
+  // A-4: if a fast typist submits before app.js is ready, capture it (don't native-submit → reload).
+  var pendingSubmit = false;
+  var sform = shell.querySelector("form.login-card");
+  if (sform) sform.addEventListener("submit", function (e) { e.preventDefault(); pendingSubmit = true; });
+
+  function shellVal(n) { var el = shell.querySelector('input[name="' + n + '"]'); return el ? el.value : ""; }
+  function realState() {
+    var app = document.getElementById("app");
+    if (!app) return null;
+    if (app.querySelector("form.login-card")) return "login";
+    var kid = app.firstElementChild;                 // authed view (player-shell / dealer) — NOT the boot splash
+    if (kid && !kid.classList.contains("boot-splash")) return "authed";
+    return null;
+  }
+
+  var done = false;
+  function handoff(kind) {
+    if (done) return; done = true;
+    if (obs) obs.disconnect();
+
+    if (kind !== "login") { if (shell.parentNode) shell.parentNode.removeChild(shell); return; }
+
+    // A-4: carry typed username/password into the real login — and KEEP re-applying, because app.js
+    // re-renders the login a few times during boot (checkAuth + loadAppConfig), which would otherwise
+    // wipe a one-shot copy. Stop as soon as the user types into the real form, or after 5s.
+    var uname = shellVal("username"), pw = shellVal("password");
+    var su = shell.querySelector('input[name="username"]'), sp = shell.querySelector('input[name="password"]');
+    var focusWanted = document.activeElement === sp ? "password" : document.activeElement === su ? "username" : null;
+    if (shell.parentNode) shell.parentNode.removeChild(shell);
+
+    var userTyped = false, focused = false, submitted = false;
+    function apply() {
+      var app = document.getElementById("app");
+      var f = app && app.querySelector("form.login-card");
+      if (!f) return;
+      var ru = f.querySelector('input[name="username"]'), rp = f.querySelector('input[name="password"]');
+      if (!userTyped) {
+        if (ru && !ru.value && uname) ru.value = uname;
+        if (rp && !rp.value && pw) rp.value = pw;
+      }
+      if (!focused && focusWanted) {
+        var t = focusWanted === "password" ? rp : ru;
+        if (t) { try { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } catch (e) {} focused = true; }
+      }
+      // submit-during-shell (A-4): once both fields are populated in a stable form, fire the real submit.
+      // Click the real Login button (proven path — same as a manual click) rather than requestSubmit.
+      if (pendingSubmit && !submitted && ru && ru.value && rp && rp.value) {
+        submitted = true;
+        var btn = f.querySelector(".login-btn");
+        try { if (btn) btn.click(); else if (f.requestSubmit) f.requestSubmit(); } catch (e) {}
+      }
+    }
+    apply();
+    var mo2 = new MutationObserver(apply);
+    mo2.observe(document.getElementById("app") || document.body, { childList: true, subtree: true });
+    document.addEventListener("input", function (e) { if (e.target && e.target.closest && e.target.closest("form.login-card")) userTyped = true; }, true);
+    setTimeout(function () { mo2.disconnect(); }, 5000);
+  }
+
+  function tick() { var s = realState(); if (s) handoff(s); }
+  var obs = new MutationObserver(tick);
+  obs.observe(document.body, { childList: true, subtree: true });
+  tick(); // in case app.js already rendered before this ran
+  // safety net: never trap the user behind the shell if detection somehow misses
+  setTimeout(function () { if (!done) { done = true; if (obs) obs.disconnect(); if (shell.parentNode) shell.parentNode.removeChild(shell); } }, 8000);
+})();
+</script>
+  
+
+<script id="legacy-bpexch-script" src="/app.js?v=1791996256067"></script><div id="bp-tv-overlay" class="bp-tvhost" style="position: absolute; z-index: 45; background: rgb(0, 0, 0); display: none; overflow: hidden;"><button type="button" class="bp-tv-play" data-act="toggle" title="Play" aria-label="Play"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></button><button type="button" class="bp-tvbar-handle" title="TV controls" aria-label="TV controls"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z"></path></svg></button><div class="bp-tvbar"><button type="button" class="bp-tvbar-btn" data-act="toggle" title="Stop" aria-label="Stop"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"></rect></svg></button><button type="button" class="bp-tvbar-btn" data-act="reload" title="Reload" aria-label="Reload"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"></path></svg></button><span class="bp-tvbar-gap"></span><button type="button" class="bp-tvbar-btn" data-act="full" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"></path></svg></button></div></div><div id="bp-tps-overlay" style="position: fixed; z-index: 40; background: transparent; display: none; overflow: hidden;"></div><div id="bp-tps-greenline" style="position: fixed; left: 0px; right: 0px; bottom: 0px; height: 6px; background: rgb(77, 189, 116); z-index: 41; display: none;"></div></body></html>
