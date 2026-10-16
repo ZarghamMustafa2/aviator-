@@ -69,7 +69,9 @@ let gameState = {
   roundId: 104500,
   phase: 'betting', // 'waiting' | 'betting' | 'flying' | 'crashed'
   multiplier: 1.00,
-  countdown: 5,
+  countdown: 6,
+  roundStartTime: null,
+  betCutoffTime: null,
   crashPoint: 2.15,
   serverSeed: '',
   commitHash: '',
@@ -263,10 +265,14 @@ function formatActiveBetsForClient(bets) {
 
 function startRoundCountdown() {
   gameState.phase = 'betting';
-  gameState.countdown = 5;
+  gameState.countdown = 6;
   gameState.multiplier = 1.00;
   gameState.flightStartTime = null;
   gameState.userBets = { 1: null, 2: null };
+
+  const countdownTotalMs = gameState.countdown * 1000;
+  gameState.roundStartTime = Date.now() + countdownTotalMs;
+  gameState.betCutoffTime = gameState.roundStartTime - 3000;
 
   // Generate bot bets for the new round
   const allBots = spawnBotBets();
@@ -279,6 +285,9 @@ function startRoundCountdown() {
   broadcastAll('state', {
     phase: 'betting',
     countdown: gameState.countdown,
+    roundStartTime: gameState.roundStartTime,
+    betCutoffTime: gameState.betCutoffTime,
+    betLocked: Date.now() >= gameState.betCutoffTime,
     roundId: gameState.roundId,
     hash: gameState.commitHash,
     commitHash: gameState.commitHash,
@@ -288,39 +297,36 @@ function startRoundCountdown() {
   });
   broadcastExposure();
 
-  // Incrementally stream remaining bot bets across the 5s countdown
+  // Stream remaining bot bets only before cutoff (countdown > 3)
   let botIdx = 0;
-  const perTick = Math.ceil(remainingBots.length / 4);
+  const perTick = Math.ceil(remainingBots.length / 3);
 
   const countdownTimer = setInterval(() => {
     gameState.countdown--;
     if (gameState.countdown > 0) {
-      const chunk = remainingBots.slice(botIdx, botIdx + perTick);
-      botIdx += perTick;
-      chunk.forEach(bot => {
-        gameState.activeBets.unshift(bot);
-        broadcastAll('bet', {
-          fid: bot.fid,
-          username: bot.rawUser,
-          panel: bot.panel,
-          stake: bot.stake
-        });
-      });
-
-      broadcastAll('countdown', { countdown: gameState.countdown });
-    } else {
-      clearInterval(countdownTimer);
-      // Flush any remaining bots
-      while (botIdx < remainingBots.length) {
-        const bot = remainingBots[botIdx++];
-        gameState.activeBets.unshift(bot);
-        broadcastAll('bet', {
-          fid: bot.fid,
-          username: bot.rawUser,
-          panel: bot.panel,
-          stake: bot.stake
+      if (gameState.countdown > 3) {
+        const chunk = remainingBots.slice(botIdx, botIdx + perTick);
+        botIdx += perTick;
+        chunk.forEach(bot => {
+          gameState.activeBets.unshift(bot);
+          broadcastAll('bet', {
+            fid: bot.fid,
+            username: bot.rawUser,
+            panel: bot.panel,
+            stake: bot.stake
+          });
         });
       }
+
+      const isLocked = gameState.countdown <= 3 || Date.now() >= gameState.betCutoffTime;
+      broadcastAll('countdown', {
+        countdown: gameState.countdown,
+        roundStartTime: gameState.roundStartTime,
+        betCutoffTime: gameState.betCutoffTime,
+        betLocked: isLocked
+      });
+    } else {
+      clearInterval(countdownTimer);
       startFlightPhase();
     }
   }, 1000);
@@ -483,6 +489,9 @@ app.get('/api/aviator/state', (req, res) => {
     phase: gameState.phase,
     multiplier: gameState.multiplier,
     countdown: gameState.countdown,
+    roundStartTime: gameState.roundStartTime,
+    betCutoffTime: gameState.betCutoffTime,
+    betLocked: gameState.phase !== 'betting' || (gameState.betCutoffTime && Date.now() >= gameState.betCutoffTime),
     roundId: gameState.roundId,
     hash: gameState.commitHash,
     commitHash: gameState.commitHash,
@@ -497,6 +506,9 @@ app.get('/api/aviator-classic/state', (req, res) => {
     phase: gameState.phase,
     multiplier: gameState.multiplier,
     countdown: gameState.countdown,
+    roundStartTime: gameState.roundStartTime,
+    betCutoffTime: gameState.betCutoffTime,
+    betLocked: gameState.phase !== 'betting' || (gameState.betCutoffTime && Date.now() >= gameState.betCutoffTime),
     roundId: gameState.roundId,
     hash: gameState.commitHash,
     commitHash: gameState.commitHash,
@@ -641,6 +653,22 @@ function handlePlaceBet(req, res) {
   const stake = Number(amount) || 0;
   const p = Number(panel) === 2 ? 2 : 1;
 
+  const now = Date.now();
+
+  if (gameState.phase !== 'betting') {
+    return res.status(400).json({ error: 'Betting is closed for this round' });
+  }
+
+  // Authoritative server-side 3-second cutoff enforcement
+  if (gameState.betCutoffTime && now >= gameState.betCutoffTime) {
+    return res.status(400).json({
+      error: 'Betting Closed',
+      code: 'BET_LOCK_ACTIVE',
+      message: 'Betting is closed for this round (final 3 seconds lock)',
+      cutoffRemainingMs: Math.max(0, gameState.roundStartTime - now)
+    });
+  }
+
   if (stake < riskLimits.minBet) {
     return res.status(400).json({ error: `Minimum bet is ₹${riskLimits.minBet}` });
   }
@@ -649,9 +677,6 @@ function handlePlaceBet(req, res) {
   }
   if (stake > userWallet.balance) {
     return res.status(400).json({ error: 'Insufficient balance' });
-  }
-  if (gameState.phase !== 'betting') {
-    return res.status(400).json({ error: 'Betting is closed for this round' });
   }
 
   // Pre-acceptance exposure validation: Never accept bets exceeding published round exposure cap

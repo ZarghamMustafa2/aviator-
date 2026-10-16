@@ -15,22 +15,25 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
   const sunburstRotRef = useRef(0);
   const gridDotsHorizRef = useRef(0);
   const gridDotsVertRef = useRef(0);
+  const waveActiveRef = useRef(false);
   const crashPosRef = useRef(null);
   const lastPlanePosRef = useRef(null);
   const onPlanePosRef = useRef(onPlanePos);
 
   onPlanePosRef.current = onPlanePos;
 
-  // Verified Phase 1 ascent duration from reference video measurements (5.0 seconds)
-  const TAKEOFF_ASCENT_DURATION = 5000;
+  // Verified nominal ascent time from reference video
+  const FLY_IN_DURATION = 5000;
 
   useEffect(() => {
     if (phase === 'flying') {
       const estimatedElapsed = calcInverseTimeMs(multiplier);
       flyStartRef.current = Date.now() - estimatedElapsed;
+      waveActiveRef.current = estimatedElapsed >= FLY_IN_DURATION;
       crashPosRef.current = null;
     } else if (phase === 'betting' || phase === 'waiting') {
       flyStartRef.current = 0;
+      waveActiveRef.current = false;
       crashPosRef.current = null;
     } else if (phase === 'crashed') {
       if (lastPlanePosRef.current) {
@@ -59,27 +62,18 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
       ctx.clearRect(0, 0, width, height);
 
       const isMobile = width < 768;
-      const planeW = isMobile ? width * 0.22 : width * 0.11;
-      const planeH = isMobile ? planeW * 0.583 : height * 0.14;
-
-      // Coordinate axes definition
-      const originX = 20;
-      const groundY = height - 20;
-
-      // Runway resting coordinates (measured normX = 0.1534, normY_bottom = 0.0533)
-      const startX = Math.max(originX + 15, width * 0.1534);
-      const startY = groundY - planeH * 0.35;
-
-      // Bounded cruising wave center coordinates (normX = 0.70, normY_top = 0.44)
-      const targetX = width * 0.70;
-      const targetY = height * 0.44;
+      const bottomMargin = height * 0.14;
+      const startX = 0.1 * width + (isMobile ? 20 : 0);
+      const targetX = width * (isMobile ? 0.7 : 0.8);
+      const targetY = isMobile ? height * 0.4 : height / 3;
+      const startY = height - bottomMargin + (isMobile ? 16 : 15);
 
       const isCrashed = phase === 'crashed';
       const isFlying = phase === 'flying';
       const isBettingOrWaiting = phase === 'betting' || phase === 'waiting';
 
-      // 1. Rotating Sunburst Rays (visible ONLY during active flight)
-      if (isFlying) {
+      // 1. Rotating Sunburst Rays (visible when not waiting/betting)
+      if (!isBettingOrWaiting) {
         ctx.save();
         ctx.translate(0, height);
         ctx.rotate(sunburstRotRef.current);
@@ -96,11 +90,13 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
           ctx.rotate((Math.PI * 2) / rayCount);
         }
         ctx.restore();
-        sunburstRotRef.current += 0.0017;
+        if (!isCrashed) {
+          sunburstRotRef.current += 0.002;
+        }
       }
 
-      // 2. Center Purple Radial Glow (active ONLY during active flight)
-      if (isFlying) {
+      // 2. Center Purple Radial Gradient
+      if (!isCrashed && !isBettingOrWaiting) {
         const cx = width / 2;
         const cy = height / 2;
         const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, width / 2);
@@ -112,102 +108,100 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
         ctx.fillRect(0, 0, width, height);
       }
 
-      // 3. Active Flight Trajectory & Red Graph Curve
+      // 3. Flight Curve & Plane Position
       if (isFlying) {
         if (flyStartRef.current === 0) {
           const estimatedElapsed = calcInverseTimeMs(multiplier);
           flyStartRef.current = Date.now() - estimatedElapsed;
         }
         const elapsed = flyStartRef.current > 0 ? Date.now() - flyStartRef.current : 0;
-
-        let px = startX;
-        let py = startY;
-        let tilt = 0;
-
-        if (elapsed <= TAKEOFF_ASCENT_DURATION) {
-          // Phase 1: Runway acceleration and parabolic climb (0.0s to 5.0s)
-          const u = Math.min(Math.max(elapsed / TAKEOFF_ASCENT_DURATION, 0), 1.0);
-          px = startX + (targetX - startX) * u;
-          py = startY - (startY - targetY) * Math.pow(u, 2);
-          tilt = (u > 0.05 && u < 0.95) ? Math.sin(u * Math.PI) * 0.16 : 0;
-        } else {
-          // Phase 2: Bounded harmonic wave oscillation (omega = 1.0 rad/s, T = 6.28s)
-          const cruiseTime = elapsed - TAKEOFF_ASCENT_DURATION;
-          const waveBlend = Math.min(cruiseTime / 1000, 1.0);
-          const waveX = (width * 0.1485 * Math.sin(0.0010 * cruiseTime)) * waveBlend;
-          const waveY = (height * 0.1100 * Math.sin(0.0010 * cruiseTime)) * waveBlend;
-
-          px = targetX + waveX;
-          py = targetY + waveY;
-          tilt = (-Math.cos(0.0010 * cruiseTime) * 0.08) * waveBlend;
+        const k = Math.min(Math.max(elapsed / FLY_IN_DURATION, 0), 1.0);
+        if (k >= 1.0) {
+          waveActiveRef.current = true;
         }
 
-        // Anchor red graph curve directly to bottom-left tail of airplane
-        const tipX = px - planeW * 0.16;
-        const tipY = py + planeH * 0.22;
-        const ctrlX = originX + (tipX - originX) * 0.42;
-        const ctrlY = groundY;
+        let waveY = 0;
+        let waveX = 0;
+        if (waveActiveRef.current) {
+          waveY = height * 0.1 * Math.min(Math.max(elapsed - FLY_IN_DURATION, 0) / 2000, 1.0) * Math.sin(0.001 * elapsed);
+          waveX = (waveY < 0 ? -1 : 1) * Math.abs(waveY * 1.5);
+        }
 
+        const marginX = width * 0.1;
+        const marginY = height * 0.1;
+        const currentX = startX + (targetX - startX) * k - marginX / 2 + waveX;
+        const currentY = startY - (startY - targetY) * Math.pow(k, 2) + waveY + marginY / 2;
+        const ctrlX = (startX + currentX) / 2;
+        const ctrlY = startY + marginY / 2 + 2;
+        const baseY = startY + marginY / 2;
+        const baseX = startX - marginX / 2;
+
+        // Draw red trail fill and red curve line
         ctx.save();
         ctx.beginPath();
-        ctx.rect(0, 0, width, groundY);
+        ctx.rect(0, 0, width, height - 10);
         ctx.clip();
 
-        // Red fill under curve
         ctx.beginPath();
-        ctx.moveTo(originX, groundY);
-        ctx.quadraticCurveTo(ctrlX, ctrlY, tipX, tipY);
-        ctx.lineTo(tipX, groundY);
-        ctx.lineTo(originX, groundY);
+        ctx.moveTo(baseX, baseY);
+        ctx.quadraticCurveTo(ctrlX, ctrlY, currentX, currentY);
+        ctx.lineTo(currentX, baseY);
+        ctx.lineTo(baseX, baseY);
         ctx.closePath();
         ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
         ctx.fill();
 
-        // 3px solid red stroke curve
         ctx.beginPath();
-        ctx.moveTo(originX, groundY);
-        ctx.quadraticCurveTo(ctrlX, ctrlY, tipX, tipY);
+        ctx.moveTo(baseX, baseY);
+        ctx.quadraticCurveTo(ctrlX, ctrlY, currentX, currentY);
         ctx.lineWidth = 3;
-        ctx.strokeStyle = '#ff0000';
+        ctx.strokeStyle = 'red';
         ctx.stroke();
         ctx.restore();
 
-        lastPlanePosRef.current = { x: px, y: py, w: planeW, h: planeH, tilt };
+        const planeW = isMobile ? width * 0.22 : width * 0.11;
+        const planeH = isMobile ? planeW * 0.583 : height * 0.14;
+        const px = startX + (targetX - startX) * k + waveX;
+        const py = startY - (startY - targetY) * Math.pow(k, 2) + waveY;
+
+        lastPlanePosRef.current = { x: px, y: py, w: planeW, h: planeH };
 
         if (onPlanePosRef.current) {
-          onPlanePosRef.current({ x: px, y: py, w: planeW, h: planeH, tilt, visible: true });
+          onPlanePosRef.current({ x: px, y: py, w: planeW, h: planeH, tilt: 0, visible: true });
         }
       }
 
-      // 4. Crashed State: Red fill is wiped IMMEDIATELY. Plane flies smoothly off-screen.
+      // 4. Crashed State (Fly off screen smoothly, red curve vanishes immediately)
       if (isCrashed) {
         if (!crashPosRef.current) {
           crashPosRef.current = lastPlanePosRef.current
             ? { ...lastPlanePosRef.current }
-            : { x: targetX, y: targetY, w: planeW, h: planeH, tilt: 0.18 };
+            : { x: startX + (targetX - startX), y: targetY };
         }
 
         const pos = crashPosRef.current;
-        const isOffscreen = pos.x > width + pos.w || pos.y < -pos.h;
+        const planeW = isMobile ? width * 0.22 : width * 0.11;
+        const planeH = isMobile ? planeW * 0.583 : height * 0.14;
+        const isOffscreen = pos.x > width + planeW || pos.y < -planeH;
 
         if (!isOffscreen) {
-          // Fly-off velocity: exits stage in approx 0.65s (39 frames at 60fps)
-          pos.x += width * 0.024;
-          pos.y -= height * 0.013;
-          pos.tilt = 0.22;
+          pos.x += width * 0.012;
+          pos.y -= height * 0.01;
         }
 
         if (onPlanePosRef.current) {
           onPlanePosRef.current(
             isOffscreen
               ? { visible: false }
-              : { x: pos.x, y: pos.y, w: pos.w, h: pos.h, tilt: pos.tilt, visible: true }
+              : { x: pos.x, y: pos.y, w: planeW, h: planeH, tilt: 0, visible: true }
           );
         }
       }
 
-      // 5. Betting or Waiting State: Plane rests stationary on runway origin
+      // 5. Betting or Waiting State (Plane parked at origin)
       if (isBettingOrWaiting) {
+        const planeW = isMobile ? width * 0.22 : width * 0.11;
+        const planeH = isMobile ? planeW * 0.583 : height * 0.14;
         if (onPlanePosRef.current) {
           onPlanePosRef.current({ x: startX, y: startY, w: planeW, h: planeH, tilt: 0, visible: true });
         }
@@ -216,7 +210,7 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
       // 6. Coordinate Grid Dots and Axes
       const dotRadius = isMobile ? 2 : 3;
       const horizSpacing = isMobile ? 100 : 150;
-      const horizY = groundY + 10;
+      const horizY = height - 10;
 
       ctx.beginPath();
       for (let u = width + gridDotsHorizRef.current; u > -width; u -= horizSpacing) {
@@ -249,17 +243,17 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
         }
       }
 
-      // Grey Axis lines (x-axis and y-axis)
+      // Grey Axis lines
       ctx.beginPath();
-      ctx.moveTo(0, groundY);
-      ctx.lineTo(width, groundY);
+      ctx.moveTo(0, height - 20);
+      ctx.lineTo(width, height - 20);
       ctx.lineWidth = 1;
       ctx.strokeStyle = '#888888';
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(originX, 0);
-      ctx.lineTo(originX, height);
+      ctx.moveTo(20, 0);
+      ctx.lineTo(20, height);
       ctx.lineWidth = 1;
       ctx.strokeStyle = '#888888';
       ctx.stroke();

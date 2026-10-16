@@ -729,6 +729,13 @@
 .avtr-action.next:disabled {
   opacity: 1;
 }
+.avtr-action.locked:disabled {
+  background: #5a6268;
+  border-color: #545b62;
+  color: #d1d5db;
+  cursor: not-allowed;
+  opacity: 0.9;
+}
 .avtr-action.waiting {
   color: #212529;
   background: #ffc107;

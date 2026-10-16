@@ -267,6 +267,7 @@ export default function AviatorGame({ variant = 'x' }) {
   const [phase, setPhase] = useState('waiting');
   const [multiplier, setMultiplier] = useState(1);
   const [countdown, setCountdown] = useState(0);
+  const [isBetLocked, setIsBetLocked] = useState(false);
   const [crashPoint, setCrashPoint] = useState(0);
   const [detailedHistory, setDetailedHistory] = useState(() => getStoredDetailedHistory());
   const [history, setHistory] = useState(() => getStoredCrashHistory());
@@ -453,7 +454,16 @@ export default function AviatorGame({ variant = 'x' }) {
         .then(res => res.json())
         .then(s => {
           if (s.onlineNow) setOnlineCount(Number(s.onlineNow) || 247);
-          if (s.phase) setPhase(s.phase);
+          if (s.phase) {
+            setPhase(s.phase);
+            if (s.betLocked !== undefined) {
+              setIsBetLocked(s.betLocked);
+            } else if (s.phase === 'betting' && typeof s.countdown === 'number') {
+              setIsBetLocked(s.countdown <= 3);
+            } else {
+              setIsBetLocked(s.phase !== 'betting');
+            }
+          }
           if (typeof s.multiplier === 'number') setMultiplier(s.multiplier);
           if (typeof s.countdown === 'number') setCountdown(s.countdown);
           if (s.roundId) setRoundId(String(s.roundId));
@@ -477,6 +487,14 @@ export default function AviatorGame({ variant = 'x' }) {
     function processGameEvent(evt, payload) {
       if (evt === 'state') {
         setPhase(payload.phase);
+        if (payload.betLocked !== undefined) {
+          setIsBetLocked(payload.betLocked);
+        } else if (payload.phase === 'betting') {
+          setIsBetLocked(payload.countdown !== undefined ? payload.countdown <= 3 : false);
+        } else {
+          setIsBetLocked(true);
+        }
+
         if (payload.countdown !== undefined) setCountdown(payload.countdown);
         if (payload.roundId) setRoundId(String(payload.roundId));
         if (payload.commitHash || payload.hash) setCommitHash(payload.commitHash || payload.hash);
@@ -516,6 +534,11 @@ export default function AviatorGame({ variant = 'x' }) {
         }
       } else if (evt === 'countdown') {
         setCountdown(payload.countdown);
+        if (payload.betLocked !== undefined) {
+          setIsBetLocked(payload.betLocked);
+        } else {
+          setIsBetLocked(payload.countdown <= 3);
+        }
       } else if (evt === 'tick') {
         const timing = animTimingRef.current;
         const now = performance.now();
@@ -605,6 +628,7 @@ export default function AviatorGame({ variant = 'x' }) {
         const roundIdVal = payload.roundId != null ? String(payload.roundId) : String(roundId || Date.now());
 
         setPhase('crashed');
+        setIsBetLocked(true);
         setCrashPoint(cpFixed);
         setMultiplier(cpFixed);
         setServerSeed(payload.seed || '');
@@ -710,7 +734,8 @@ export default function AviatorGame({ variant = 'x' }) {
 
       processGameEvent('state', {
         phase: 'betting',
-        countdown: 5,
+        countdown: 6,
+        betLocked: false,
         roundId: simRoundNumber,
         hash: simCommitHash,
         commitHash: simCommitHash,
@@ -718,9 +743,9 @@ export default function AviatorGame({ variant = 'x' }) {
         bets: simBets
       });
 
-      let cd = 5;
+      let cd = 6;
       let botIdx = 0;
-      const perTick = Math.ceil(remainingBots.length / 4);
+      const perTick = Math.ceil(remainingBots.length / 3);
 
       simInterval = setInterval(() => {
         if (!isSimulating || isClosed) {
@@ -729,30 +754,22 @@ export default function AviatorGame({ variant = 'x' }) {
         }
         cd--;
         if (cd > 0) {
-          const chunk = remainingBots.slice(botIdx, botIdx + perTick);
-          botIdx += perTick;
-          chunk.forEach(b => {
-            simBets.unshift(b);
-            processGameEvent('bet', {
-              fid: b.fid,
-              username: b.rawUser,
-              panel: b.panel,
-              stake: b.stake
-            });
-          });
-          processGameEvent('countdown', { countdown: cd });
-        } else {
-          clearInterval(simInterval);
-          while (botIdx < remainingBots.length) {
-            const b = remainingBots[botIdx++];
-            simBets.unshift(b);
-            processGameEvent('bet', {
-              fid: b.fid,
-              username: b.rawUser,
-              panel: b.panel,
-              stake: b.stake
+          if (cd > 3) {
+            const chunk = remainingBots.slice(botIdx, botIdx + perTick);
+            botIdx += perTick;
+            chunk.forEach(b => {
+              simBets.unshift(b);
+              processGameEvent('bet', {
+                fid: b.fid,
+                username: b.rawUser,
+                panel: b.panel,
+                stake: b.stake
+              });
             });
           }
+          processGameEvent('countdown', { countdown: cd, betLocked: cd <= 3 });
+        } else {
+          clearInterval(simInterval);
           runSimFlight();
         }
       }, 1000);
@@ -1022,6 +1039,12 @@ export default function AviatorGame({ variant = 'x' }) {
 
   // Bet actions
   const handlePlaceBet = useCallback((panel) => {
+    const isLockedNow = isBetLocked || (phase !== 'betting') || (phase === 'betting' && countdown <= 3);
+    if (isLockedNow) {
+      alert('Betting Closed');
+      return;
+    }
+
     const p = panel === 2 ? 2 : 1;
     const stake = Number(p === 1 ? amount1 : amount2) || 0;
     const minLimit = riskLimits?.minBet || 10;
@@ -1101,7 +1124,7 @@ export default function AviatorGame({ variant = 'x' }) {
           return bal - stake;
         });
       });
-  }, [amount1, amount2, autoCashout1, autoCashout2, targetCashout1, targetCashout2, apiPrefix, fetchWallet, userProfile, riskLimits, exposureMetrics]);
+  }, [amount1, amount2, autoCashout1, autoCashout2, targetCashout1, targetCashout2, apiPrefix, fetchWallet, userProfile, riskLimits, exposureMetrics, isBetLocked, phase, countdown]);
 
   const handleCashout = useCallback((panel) => {
     const p = panel === 2 ? 2 : 1;
@@ -1210,6 +1233,7 @@ export default function AviatorGame({ variant = 'x' }) {
     const setTargetStr = isP1 ? setTargetCashoutStr1 : setTargetCashoutStr2;
 
     const isLocked = !!(betState.placed && !betState.cashedOut && (phase === 'betting' || phase === 'flying'));
+    const isLockedNow = isBetLocked || (phase !== 'betting') || (phase === 'betting' && countdown <= 3);
 
     let btnText = 'Place';
     let btnClass = 'avtr-action';
@@ -1221,6 +1245,11 @@ export default function AviatorGame({ variant = 'x' }) {
       btnText = 'Cancel';
       btnClass = 'avtr-action waiting';
       btnHandler = () => handleCancelBet(panel);
+    } else if (phase === 'betting' && isLockedNow) {
+      btnText = 'Betting Closed';
+      btnClass = 'avtr-action locked';
+      btnDisabled = true;
+      btnHandler = () => {};
     } else if (phase === 'flying' && betState.placed && !betState.cashedOut) {
       btnText = 'Cashout  (';
       btnClass = 'avtr-action active';
@@ -1233,7 +1262,7 @@ export default function AviatorGame({ variant = 'x' }) {
     } else if (phase === 'flying' || phase === 'crashed' || phase === 'waiting') {
       btnText = 'Next';
       btnClass = 'avtr-action next';
-      btnDisabled = phase !== 'betting';
+      btnDisabled = true;
     }
 
     return (
