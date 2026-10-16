@@ -2338,7 +2338,7 @@ export default function AviatorGame({ variant = 'x' }) {
                   </div>
                   <div className="col-6 col-md-6 inline-block Gameidcol">
                     <div role="group" aria-label="Game tabs" className="btn-group btn-group-sm mr-2">
-                      {['Game', 'Results', 'Rules', 'Admin'].map((t) => (
+                      {['Game', 'Results', 'Rules'].map((t) => (
                         <button
                           type="button"
                           key={t}
