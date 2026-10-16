@@ -8,3 +8,9 @@ comparison_output/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.mp4
+*.mov
+*.webm
+temp_frames/
+scratch_video_analysis/
+
