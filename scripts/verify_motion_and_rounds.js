@@ -59,13 +59,22 @@ function getPlanePosition(elapsedMs, phase, lastPos = null) {
   }
 }
 
+const PROBABILITY_CONFIG = {
+  edge: 0.04,
+  scale: 0.85,
+  alpha: 0.65,
+  maxMultiplier: 30.00
+};
+
 // 2. Provably fair crash calculation
 function calculateCrashPoint(hash) {
+  if (!hash || typeof hash !== 'string') return 1.00;
   const hInt = parseInt(hash.slice(0, 13), 16);
   const r = hInt / Math.pow(2, 52);
-  if (r < 0.04) return 1.00;
-  const raw = 0.97 / (1 - r);
-  return Math.max(1.00, Math.min(30.00, Math.floor(raw * 100) / 100));
+  if (r < PROBABILITY_CONFIG.edge) return 1.00;
+  const normalizedR = (r - PROBABILITY_CONFIG.edge) / (1 - PROBABILITY_CONFIG.edge);
+  const raw = 1.01 + PROBABILITY_CONFIG.scale * (1 / Math.pow(1 - normalizedR, PROBABILITY_CONFIG.alpha) - 1);
+  return Math.max(1.00, Math.min(PROBABILITY_CONFIG.maxMultiplier, Math.floor(raw * 100) / 100));
 }
 
 function calcInverseTimeMs(m) {

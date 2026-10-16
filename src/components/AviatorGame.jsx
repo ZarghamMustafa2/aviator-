@@ -112,8 +112,8 @@ function generateSimBots() {
   return bets;
 }
 
-const RESULTS_STORAGE_KEY = 'aviator_results_history_v1';
-const CRASH_STORAGE_KEY = 'aviator_crash_history_v1';
+const RESULTS_STORAGE_KEY = 'aviator_results_history_v2';
+const CRASH_STORAGE_KEY = 'aviator_crash_history_v2';
 
 // Pure JS SHA-256 for deterministic, zero-dependency cryptographic hashing in browser
 function sha256Hex(ascii) {
@@ -181,16 +181,30 @@ function sha256Hex(ascii) {
   return result;
 }
 
+// Transparent, calibrated probability distribution configuration:
+// - House edge (instant crash at 1.00x): 4.0%
+// - Low crash range (< 2.00x): ~70.7%
+// - Medium crash range (2.00x - 5.00x): ~22.6%
+// - High crash range (> 5.00x): ~6.6%
+// - Occasional super-high (> 10.00x): ~2.2%
+const PROBABILITY_CONFIG = {
+  edge: 0.04,          // 4% instant crash floor
+  scale: 0.85,         // Scaling coefficient
+  alpha: 0.65,         // Tail decay exponent
+  maxMultiplier: 30.00 // Cap to maintain synchronization and prevent runaway flights
+};
+
 // Authoritative Provably Fair calculation matching probability model
 function calculateCrashPoint(hash) {
   if (!hash || typeof hash !== 'string') return 1.00;
   const hInt = parseInt(hash.slice(0, 13), 16);
   const r = hInt / Math.pow(2, 52);
-  if (r < 0.04) {
+  if (r < PROBABILITY_CONFIG.edge) {
     return 1.00;
   }
-  const raw = 0.97 / (1 - r);
-  return Math.max(1.00, Math.min(30.00, Math.floor(raw * 100) / 100));
+  const normalizedR = (r - PROBABILITY_CONFIG.edge) / (1 - PROBABILITY_CONFIG.edge);
+  const raw = 1.01 + PROBABILITY_CONFIG.scale * (1 / Math.pow(1 - normalizedR, PROBABILITY_CONFIG.alpha) - 1);
+  return Math.max(1.00, Math.min(PROBABILITY_CONFIG.maxMultiplier, Math.floor(raw * 100) / 100));
 }
 
 function generateInitialHistory() {
@@ -1727,7 +1741,7 @@ export default function AviatorGame({ variant = 'x' }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div>1. Compute SHA-256(Server Seed) ➔ <span style={{ color: '#58a6ff' }}>{computedHash ? computedHash.slice(0, 16) + '...' : '--'}</span> {hashMatches && <b style={{ color: '#2ecc71' }}>✓ Match</b>}</div>
                 <div>2. Take first 52 bits of hash ➔ <code>r = hexToInt(hash[0..13]) / 2^52</code></div>
-                <div>3. Multiplier formula ➔ <code>r &lt; 0.04 ? 1.00 : 0.97 / (1 - r)</code></div>
+                <div>3. Multiplier formula ➔ <code>r &lt; 0.04 ? 1.00 : 1.01 + 0.85 * ((1 - (r - 0.04)/0.96)^(-0.65) - 1)</code></div>
                 <div>4. Calculated Multiplier ➔ <b style={{ color: getResultTextColor(computedCp) }}>{computedCp.toFixed(2)}x</b> {cpMatches && <b style={{ color: '#2ecc71' }}>✓ Exact Match</b>}</div>
               </div>
             </div>

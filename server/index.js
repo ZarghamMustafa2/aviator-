@@ -37,15 +37,30 @@ let userWallet = {
   }
 };
 
+// Configurable transparent probability distribution model:
+// - House edge (instant crash at 1.00x): 4.0%
+// - Low crash range (< 2.00x): ~70.7%
+// - Medium crash range (2.00x - 5.00x): ~22.6%
+// - High crash range (> 5.00x): ~6.6%
+// - Occasional super-high (> 10.00x): ~2.2%
+const PROBABILITY_CONFIG = {
+  edge: 0.04,          // 4% instant crash floor
+  scale: 0.85,         // Scaling coefficient
+  alpha: 0.65,         // Tail decay exponent
+  maxMultiplier: 30.00 // Cap to maintain synchronization and prevent runaway flights
+};
+
 // Provably fair calculation algorithm
 function calculateCrashPoint(hash) {
+  if (!hash || typeof hash !== 'string') return 1.00;
   const hInt = parseInt(hash.slice(0, 13), 16);
   const r = hInt / Math.pow(2, 52);
-  if (r < 0.04) {
+  if (r < PROBABILITY_CONFIG.edge) {
     return 1.00;
   }
-  const raw = 0.97 / (1 - r);
-  return Math.max(1.00, Math.min(30.00, Math.floor(raw * 100) / 100));
+  const normalizedR = (r - PROBABILITY_CONFIG.edge) / (1 - PROBABILITY_CONFIG.edge);
+  const raw = 1.01 + PROBABILITY_CONFIG.scale * (1 / Math.pow(1 - normalizedR, PROBABILITY_CONFIG.alpha) - 1);
+  return Math.max(1.00, Math.min(PROBABILITY_CONFIG.maxMultiplier, Math.floor(raw * 100) / 100));
 }
 
 // Seed initial history of 50 rounds (newest first)
@@ -549,8 +564,12 @@ app.get('/api/aviator/verify', (req, res) => {
     hash: hash,
     crashPoint: cp,
     rFraction: r,
-    instantCrash: r < 0.04,
-    formula: 'r < 0.04 ? 1.00 : Math.max(1.00, Math.min(30.00, Math.floor((0.97 / (1 - r)) * 100) / 100))'
+    instantCrash: r < PROBABILITY_CONFIG.edge,
+    formula: 'r < 0.04 ? 1.00 : Math.max(1.00, Math.min(30.00, Math.floor((1.01 + 0.85 * (Math.pow(1 - (r - 0.04) / 0.96, -0.65) - 1)) * 100) / 100))',
+    probabilityModel: {
+      houseEdge: '4.0%',
+      targetRanges: { below2x: '~70.7%', between2and5x: '~22.6%', above5x: '~6.6%', above10x: '~2.2%' }
+    }
   });
 });
 app.get('/api/aviator-classic/verify', (req, res) => {
@@ -568,8 +587,12 @@ app.get('/api/aviator-classic/verify', (req, res) => {
     hash: hash,
     crashPoint: cp,
     rFraction: r,
-    instantCrash: r < 0.04,
-    formula: 'r < 0.04 ? 1.00 : Math.max(1.00, Math.min(30.00, Math.floor((0.97 / (1 - r)) * 100) / 100))'
+    instantCrash: r < PROBABILITY_CONFIG.edge,
+    formula: 'r < 0.04 ? 1.00 : Math.max(1.00, Math.min(30.00, Math.floor((1.01 + 0.85 * (Math.pow(1 - (r - 0.04) / 0.96, -0.65) - 1)) * 100) / 100))',
+    probabilityModel: {
+      houseEdge: '4.0%',
+      targetRanges: { below2x: '~70.7%', between2and5x: '~22.6%', above5x: '~6.6%', above10x: '~2.2%' }
+    }
   });
 });
 
