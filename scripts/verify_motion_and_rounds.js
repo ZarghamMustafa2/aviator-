@@ -4,8 +4,8 @@ console.log('====================================================');
 console.log('AVIATOR AIRPLANE MOTION & 25-ROUND SIMULATION TEST');
 console.log('====================================================\n');
 
-// 1. Exact mathematical motion formulas from AviatorCanvas.jsx
-const TAKEOFF_ASCENT_DURATION = 5000;
+// 1. Exact mathematical motion formulas from AviatorCanvas.jsx (20% slower visual speed)
+const TAKEOFF_ASCENT_DURATION = 6250;
 const width = 800;
 const height = 500;
 const originX = 20;
@@ -34,12 +34,12 @@ function getPlanePosition(elapsedMs, phase, lastPos = null) {
       tilt = (u > 0.05 && u < 0.95) ? Math.sin(u * Math.PI) * 0.16 : 0;
     } else {
       const cruiseTime = elapsedMs - TAKEOFF_ASCENT_DURATION;
-      const waveBlend = Math.min(cruiseTime / 1000, 1.0);
-      const waveX = (width * 0.1485 * Math.sin(0.0010 * cruiseTime)) * waveBlend;
-      const waveY = (height * 0.1100 * Math.sin(0.0010 * cruiseTime)) * waveBlend;
+      const waveBlend = Math.min(cruiseTime / 1250, 1.0);
+      const waveX = (width * 0.1485 * Math.sin(0.0008 * cruiseTime)) * waveBlend;
+      const waveY = (height * 0.1100 * Math.sin(0.0008 * cruiseTime)) * waveBlend;
       px = targetX + waveX;
       py = targetY + waveY;
-      tilt = (-Math.cos(0.0010 * cruiseTime) * 0.08) * waveBlend;
+      tilt = (-Math.cos(0.0008 * cruiseTime) * 0.08) * waveBlend;
     }
 
     const tipX = px - planeW * 0.16;
