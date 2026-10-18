@@ -2361,10 +2361,7 @@ export default function AviatorGame({ variant = 'x' }) {
                 {/* Top Titlebar */}
                 <div className="footer-divbpg border-gradient-footer border-gradient-purple-footer bp-titlebar">
                   <div className="col-6 col-md-6 titlebarname">
-                    <p>
-                      {gameTitle}
-                      <span className="avtr-virtual-pill">Demo • Virtual Credits</span>
-                    </p>
+                    <p>{gameTitle}</p>
                   </div>
                   <div className="col-6 col-md-6 inline-block Gameidcol">
                     <div role="group" aria-label="Game tabs" className="btn-group btn-group-sm mr-2">
