@@ -3,25 +3,17 @@ import AviatorCanvas from './AviatorCanvas';
 import PlaneView from './PlaneView';
 import AviatorClassicStage from './AviatorClassicStage';
 
+// Constant linear multiplier growth rate (measured from initial rate: 0.05x per second)
+const CONSTANT_GROWTH_RATE = 0.05;
+
 function calcMultiplier(elapsedMs) {
-  const t = elapsedMs / 1000;
-  return t <= 4
-    ? 1 + 0.05 * t
-    : t <= 22
-      ? 1.2 + 0.1 * (t - 4)
-      : t <= 34.5
-        ? 3 + 0.4 * (t - 22)
-        : 8 + 1 * (t - 34.5);
+  const t = Math.max(0, elapsedMs) / 1000;
+  return 1.00 + t * CONSTANT_GROWTH_RATE;
 }
 
 function calcInverseTimeMs(m) {
-  return m <= 1.2
-    ? ((m - 1) / 0.05) * 1000
-    : m <= 3
-      ? (4 + (m - 1.2) / 0.1) * 1000
-      : m <= 8
-        ? (22 + (m - 3) / 0.4) * 1000
-        : (34.5 + (m - 8)) * 1000;
+  const num = Math.max(1.00, Number(m) || 1.00);
+  return ((num - 1.00) / CONSTANT_GROWTH_RATE) * 1000;
 }
 
 function maskUser(name) {
@@ -1019,7 +1011,10 @@ export default function AviatorGame({ variant = 'x' }) {
       if (timing.start != null) {
         const now = performance.now();
         const elapsed = Math.min(now, timing.lastTickAt + 1000) - timing.start;
-        const calculated = Math.floor(calcMultiplier(Math.max(0, elapsed)) * 100 + 1e-9) / 100;
+        let calculated = Math.floor(calcMultiplier(Math.max(0, elapsed)) * 100 + 1e-9) / 100;
+        if (crashPoint && calculated > crashPoint) {
+          calculated = crashPoint;
+        }
         if (calculated > displayMult) {
           displayMult = calculated;
         }

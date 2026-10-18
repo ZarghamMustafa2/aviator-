@@ -77,11 +77,11 @@ function calculateCrashPoint(hash) {
   return Math.max(1.00, Math.min(PROBABILITY_CONFIG.maxMultiplier, Math.floor(raw * 100) / 100));
 }
 
+const CONSTANT_GROWTH_RATE = 0.05;
+
 function calcInverseTimeMs(m) {
-  if (m <= 1.2) return ((m - 1) / 0.05) * 1000;
-  if (m <= 3) return (4 + (m - 1.2) / 0.1) * 1000;
-  if (m <= 8) return (22 + (m - 3) / 0.4) * 1000;
-  return (34.5 + (m - 8)) * 1000;
+  const num = Math.max(1.00, Number(m) || 1.00);
+  return ((num - 1.00) / CONSTANT_GROWTH_RATE) * 1000;
 }
 
 const history = [];

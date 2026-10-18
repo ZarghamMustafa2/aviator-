@@ -9,20 +9,17 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
 
-// Multiplier formula exact reference reproduction
+// Constant linear multiplier growth rate (measured from initial rate: 0.05x per second)
+const CONSTANT_GROWTH_RATE = 0.05;
+
 function calcMultiplier(elapsedMs) {
-  const t = elapsedMs / 1000;
-  if (t <= 4) return 1 + 0.05 * t;
-  if (t <= 22) return 1.2 + 0.1 * (t - 4);
-  if (t <= 34.5) return 3 + 0.4 * (t - 22);
-  return 8 + 1 * (t - 34.5);
+  const t = Math.max(0, elapsedMs) / 1000;
+  return 1.00 + t * CONSTANT_GROWTH_RATE;
 }
 
 function calcInverseTimeMs(m) {
-  if (m <= 1.2) return ((m - 1) / 0.05) * 1000;
-  if (m <= 3) return (4 + (m - 1.2) / 0.1) * 1000;
-  if (m <= 8) return (22 + (m - 3) / 0.4) * 1000;
-  return (34.5 + (m - 8)) * 1000;
+  const num = Math.max(1.00, Number(m) || 1.00);
+  return ((num - 1.00) / CONSTANT_GROWTH_RATE) * 1000;
 }
 
 // Simulated User & Wallet State
@@ -369,10 +366,11 @@ function startFlightPhase() {
 
     const elapsed = Date.now() - gameState.flightStartTime;
     const currentMult = +(calcMultiplier(elapsed)).toFixed(2);
-    gameState.multiplier = currentMult;
+    const clampedMult = Math.min(gameState.crashPoint, currentMult);
+    gameState.multiplier = clampedMult;
 
     // Tick broadcast
-    broadcastAll('tick', { multiplier: currentMult });
+    broadcastAll('tick', { multiplier: clampedMult });
 
     // Check Auto-cashouts & Bot cashouts
     // 1. Bots

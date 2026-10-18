@@ -1,11 +1,10 @@
 import React, { useRef, useEffect } from 'react';
 
+const CONSTANT_GROWTH_RATE = 0.05;
+
 function calcInverseTimeMs(m) {
-  const num = Number(m) || 1;
-  if (num <= 1.2) return ((num - 1) / 0.05) * 1000;
-  if (num <= 3) return (4 + (num - 1.2) / 0.1) * 1000;
-  if (num <= 8) return (22 + (num - 3) / 0.4) * 1000;
-  return (34.5 + (num - 8)) * 1000;
+  const num = Math.max(1.00, Number(m) || 1.00);
+  return ((num - 1.00) / CONSTANT_GROWTH_RATE) * 1000;
 }
 
 export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePos }) {
