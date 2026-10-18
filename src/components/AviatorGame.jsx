@@ -1066,11 +1066,11 @@ export default function AviatorGame({ variant = 'x' }) {
     const maxExposureLimit = riskLimits?.maxExposurePerRound || 1000000;
 
     if (stake < minLimit) {
-      alert(`Minimum bet is ₹${minLimit}`);
+      alert(`Minimum bet is ${minLimit} credits`);
       return;
     }
     if (stake > maxLimit) {
-      alert(`Maximum bet limit is ₹${maxLimit.toLocaleString()}`);
+      alert(`Maximum bet limit is ${maxLimit.toLocaleString()} credits`);
       return;
     }
 
@@ -1079,7 +1079,7 @@ export default function AviatorGame({ variant = 'x' }) {
     const incrementalExp = Math.max(0, (stake * targetMult) - stake);
 
     if (exposureMetrics.maxFinancialExposure + incrementalExp > maxExposureLimit) {
-      alert(`Round exposure limit reached (₹${maxExposureLimit.toLocaleString()}). Bet cannot be accepted by Risk Engine.`);
+      alert(`Round exposure limit reached (${maxExposureLimit.toLocaleString()} credits). Bet cannot be accepted by Risk Engine.`);
       return;
     }
 
@@ -1850,13 +1850,26 @@ export default function AviatorGame({ variant = 'x' }) {
           <div className="avtr-rule"><b>6.</b> Your winnings = Bet Amount x Cashout Multiplier.</div>
           <div className="avtr-rule"><b>7.</b> You can set an Auto Cashout — you'll be cashed out automatically the instant the multiplier reaches your chosen value (minimum 1.20x).</div>
           <h3>LIMITS &amp; RISK MANAGEMENT</h3>
-          <div className="avtr-rule">• Minimum bet: ₹{riskLimits?.minBet || 10}</div>
-          <div className="avtr-rule">• Maximum single bet: ₹{formatNumber(riskLimits?.maxBet || 50000)}</div>
-          <div className="avtr-rule">• Maximum round exposure cap: ₹{formatNumber(riskLimits?.maxExposurePerRound || 1000000)} (Risk Engine blocks new bets if cap is reached)</div>
-          <div className="avtr-rule">• The maximum multiplier is 30× — a round never goes higher, and an auto-cashout set above 30× will not trigger.</div>
-          <div className="avtr-rule">• Provably Fair: All round outcomes are cryptographically pre-committed before betting opens and are 100% independent of bets.</div>
+          <div className="avtr-rule">• Minimum bet: {riskLimits?.minBet || 10} Credits</div>
+          <div className="avtr-rule">• Maximum single bet: {formatNumber(riskLimits?.maxBet || 50000)} Credits</div>
+          <div className="avtr-rule">• Maximum round exposure cap: {formatNumber(riskLimits?.maxExposurePerRound || 1000000)} Credits (Risk Engine blocks new bets if cap is reached)</div>
+          <div className="avtr-rule">• The maximum multiplier is 30.00× — a flight never exceeds 30.00×, and an auto-cashout set above 30× will not trigger.</div>
+          <div className="avtr-rule">• Provably Fair: All round outcomes are cryptographically pre-committed via SHA-256 before betting opens and are 100% independent of bets, stakes, or player decisions.</div>
+
+          <h3>PROBABILITY MODEL &amp; FAIR DISTRIBUTION</h3>
+          <div className="avtr-rule">• Cryptographic Randomness: Each round generates an independent 256-bit seed, immune to streaks, fixed cycles, or player win/loss quotas (no artificial 8-losses/2-wins enforcement).</div>
+          <div className="avtr-rule">• Documented House Edge: 4.0% transparent edge floor (instant crash at 1.00×).</div>
+          <div className="avtr-rule">• Low Crashes (&lt; 2.00×): ~70.7% of rounds (early crashes for authentic risk dynamics).</div>
+          <div className="avtr-rule">• Medium Flights (2.00× – 5.00×): ~22.6% of rounds.</div>
+          <div className="avtr-rule">• High Flights (&gt; 5.00×): ~6.6% of rounds.</div>
+          <div className="avtr-rule">• Super-High Flights (&gt; 10.00×): ~2.2% of rounds (occasional exciting peak flights).</div>
+
+          <h3>VIRTUAL PLAY &amp; ENTERTAINMENT NOTICE</h3>
+          <div className="avtr-rule">• Virtual Credits: This game operates entirely with virtual entertainment credits. All balances, stakes, winnings, and simulated players are for demonstration and amusement purposes only.</div>
+          <div className="avtr-rule">• No Real Money: Virtual credits have no cash value, cannot be deposited, purchased, or redeemed for real money, and do not constitute real-world gambling activity.</div>
+          <div className="avtr-rule">• Cashout Decides Outcome: Winning or losing depends purely on player cashout timing relative to the predetermined crash point. No player is secretly forced to win or lose.</div>
           <div className="avtr-rules-warning">
-            A good internet connection is required to play Aviator. If players are unable to cashout due to a poor internet connection, the bet will be settled as lost.
+            A good internet connection is recommended for optimal synchronization. In active play, cashouts are recorded when received by the game engine before the plane flies away.
           </div>
         </div>
       </div>
@@ -1984,10 +1997,10 @@ export default function AviatorGame({ variant = 'x' }) {
               Total Bet Amount
             </div>
             <div style={{ fontSize: 22, fontWeight: 800, color: '#22c55e', marginTop: 4 }}>
-              ₹{formatNumber(exposureMetrics.totalBetAmount)}
+              {formatNumber(exposureMetrics.totalBetAmount)}
             </div>
             <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
-              Gross stakes volume
+              Gross stakes volume (Credits)
             </div>
           </div>
 
@@ -2024,10 +2037,10 @@ export default function AviatorGame({ variant = 'x' }) {
               Potential Payout
             </div>
             <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b', marginTop: 4 }}>
-              ₹{formatNumber(exposureMetrics.totalPotentialPayout)}
+              {formatNumber(exposureMetrics.totalPotentialPayout)}
             </div>
             <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
-              Max possible winnings
+              Max possible winnings (Credits)
             </div>
           </div>
 
@@ -2041,10 +2054,10 @@ export default function AviatorGame({ variant = 'x' }) {
             }}
           >
             <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Max Financial Exposure
+              Max Exposure
             </div>
             <div style={{ fontSize: 22, fontWeight: 800, color: exposureMetrics.isExposureCapped ? '#ef4444' : '#06b6d4', marginTop: 4 }}>
-              ₹{formatNumber(exposureMetrics.maxFinancialExposure)}
+              {formatNumber(exposureMetrics.maxFinancialExposure)}
             </div>
             <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
               Net house liability
@@ -2108,15 +2121,15 @@ export default function AviatorGame({ variant = 'x' }) {
           >
             <div>
               <span>Current Liability: </span>
-              <b style={{ color: '#fff' }}>₹{formatNumber(exposureMetrics.maxFinancialExposure)}</b>
+              <b style={{ color: '#fff' }}>{formatNumber(exposureMetrics.maxFinancialExposure)} Credits</b>
               <span> / Max Exposure Limit: </span>
-              <b style={{ color: '#fff' }}>₹{formatNumber(riskLimits.maxExposurePerRound)}</b>
+              <b style={{ color: '#fff' }}>{formatNumber(riskLimits.maxExposurePerRound)} Credits</b>
             </div>
             <div>
               <span>Min Bet: </span>
-              <b style={{ color: '#fff' }}>₹{riskLimits.minBet}</b>
+              <b style={{ color: '#fff' }}>{riskLimits.minBet}</b>
               <span> | Max Single Bet: </span>
-              <b style={{ color: '#fff' }}>₹{formatNumber(riskLimits.maxBet)}</b>
+              <b style={{ color: '#fff' }}>{formatNumber(riskLimits.maxBet)}</b>
             </div>
           </div>
         </div>
@@ -2252,12 +2265,12 @@ export default function AviatorGame({ variant = 'x' }) {
                   return (
                     <tr key={b.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
                       <td style={{ padding: '6px 10px', color: '#e2e8f0' }}>{b.user}</td>
-                      <td style={{ padding: '6px 10px', color: '#fff', fontWeight: 600 }}>₹{formatNumber(stake)}</td>
+                      <td style={{ padding: '6px 10px', color: '#fff', fontWeight: 600 }}>{formatNumber(stake)}</td>
                       <td style={{ padding: '6px 10px', color: isCashed ? '#22c55e' : '#94a3b8' }}>
                         {isCashed ? `${Number(b.cashoutAt).toFixed(2)}x` : b.desiredCashout ? `${Number(b.desiredCashout).toFixed(2)}x` : '--'}
                       </td>
-                      <td style={{ padding: '6px 10px', color: '#f59e0b' }}>₹{formatNumber(maxPayout)}</td>
-                      <td style={{ padding: '6px 10px', color: '#06b6d4' }}>₹{formatNumber(netExp)}</td>
+                      <td style={{ padding: '6px 10px', color: '#f59e0b' }}>{formatNumber(maxPayout)}</td>
+                      <td style={{ padding: '6px 10px', color: '#06b6d4' }}>{formatNumber(netExp)}</td>
                       <td style={{ padding: '6px 10px' }}>
                         <span
                           style={{
@@ -2348,7 +2361,10 @@ export default function AviatorGame({ variant = 'x' }) {
                 {/* Top Titlebar */}
                 <div className="footer-divbpg border-gradient-footer border-gradient-purple-footer bp-titlebar">
                   <div className="col-6 col-md-6 titlebarname">
-                    <p>{gameTitle}</p>
+                    <p>
+                      {gameTitle}
+                      <span className="avtr-virtual-pill">Demo • Virtual Credits</span>
+                    </p>
                   </div>
                   <div className="col-6 col-md-6 inline-block Gameidcol">
                     <div role="group" aria-label="Game tabs" className="btn-group btn-group-sm mr-2">

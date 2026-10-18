@@ -100,7 +100,7 @@ let gameState = {
 let riskLimits = {
   minBet: 10,
   maxBet: 50000,
-  maxExposurePerRound: 1000000 // ₹1,000,000 max round financial exposure limit
+  maxExposurePerRound: 1000000 // 1,000,000 max round virtual credit exposure limit
 };
 
 // Calculate real-time financial exposure and round bet metrics
@@ -693,10 +693,10 @@ function handlePlaceBet(req, res) {
   }
 
   if (stake < riskLimits.minBet) {
-    return res.status(400).json({ error: `Minimum bet is ₹${riskLimits.minBet}` });
+    return res.status(400).json({ error: `Minimum bet is ${riskLimits.minBet} credits` });
   }
   if (stake > riskLimits.maxBet) {
-    return res.status(400).json({ error: `Maximum bet limit is ₹${riskLimits.maxBet.toLocaleString()}` });
+    return res.status(400).json({ error: `Maximum bet limit is ${riskLimits.maxBet.toLocaleString()} credits` });
   }
   if (stake > userWallet.balance) {
     return res.status(400).json({ error: 'Insufficient balance' });
@@ -709,7 +709,7 @@ function handlePlaceBet(req, res) {
 
   if (currentMetrics.maxFinancialExposure + newBetExposure > riskLimits.maxExposurePerRound) {
     return res.status(400).json({
-      error: `Round exposure limit reached (₹${riskLimits.maxExposurePerRound.toLocaleString()}). Bet cannot be accepted by Risk Engine.`
+      error: `Round exposure limit reached (${riskLimits.maxExposurePerRound.toLocaleString()} credits). Bet cannot be accepted by Risk Engine.`
     });
   }
 
