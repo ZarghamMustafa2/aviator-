@@ -9,17 +9,21 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
 
-// Constant linear multiplier growth rate (measured from initial rate: 0.05x per second)
-const CONSTANT_GROWTH_RATE = 0.05;
-
+// Exact reference multiplier progression function from Aviator-_8Beb6PJ.js
 function calcMultiplier(elapsedMs) {
   const t = Math.max(0, elapsedMs) / 1000;
-  return 1.00 + t * CONSTANT_GROWTH_RATE;
+  if (t <= 4) return 1 + 0.05 * t;
+  if (t <= 22) return 1.2 + 0.1 * (t - 4);
+  if (t <= 34.5) return 3 + 0.4 * (t - 22);
+  return 8 + 1 * (t - 34.5);
 }
 
 function calcInverseTimeMs(m) {
   const num = Math.max(1.00, Number(m) || 1.00);
-  return ((num - 1.00) / CONSTANT_GROWTH_RATE) * 1000;
+  if (num <= 1.2) return ((num - 1) / 0.05) * 1000;
+  if (num <= 3) return (4 + (num - 1.2) / 0.1) * 1000;
+  if (num <= 8) return (22 + (num - 3) / 0.4) * 1000;
+  return (34.5 + (num - 8)) * 1000;
 }
 
 // Simulated User & Wallet State
@@ -76,12 +80,24 @@ for (let i = 0; i < 50; i++) {
   });
 }
 
+// Helper to format Round ID matching reference pattern AVTR-YYMMDD-XXXXXX
+function formatRoundId(id) {
+  if (!id) return '--';
+  const str = String(id);
+  if (str.startsWith('AVTR-')) return str;
+  const d = new Date();
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `AVTR-${yy}${mm}${dd}-${str.padStart(6, '0')}`;
+}
+
 // Game State
 let gameState = {
   roundId: 104500,
   phase: 'betting', // 'waiting' | 'betting' | 'flying' | 'crashed'
   multiplier: 1.00,
-  countdown: 6,
+  countdown: 10,
   roundStartTime: null,
   betCutoffTime: null,
   crashPoint: 2.15,
@@ -277,7 +293,7 @@ function formatActiveBetsForClient(bets) {
 
 function startRoundCountdown() {
   gameState.phase = 'betting';
-  gameState.countdown = 6;
+  gameState.countdown = 10;
   gameState.multiplier = 1.00;
   gameState.flightStartTime = null;
   gameState.userBets = { 1: null, 2: null };

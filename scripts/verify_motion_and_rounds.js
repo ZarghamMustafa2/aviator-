@@ -4,8 +4,8 @@ console.log('====================================================');
 console.log('AVIATOR AIRPLANE MOTION & 25-ROUND SIMULATION TEST');
 console.log('====================================================\n');
 
-// 1. Exact mathematical motion formulas from AviatorCanvas.jsx (20% slower visual speed)
-const TAKEOFF_ASCENT_DURATION = 6250;
+// 1. Exact mathematical motion formulas from AviatorCanvas.jsx
+const TAKEOFF_ASCENT_DURATION = 5000;
 const width = 800;
 const height = 500;
 const originX = 20;
@@ -34,12 +34,12 @@ function getPlanePosition(elapsedMs, phase, lastPos = null) {
       tilt = (u > 0.05 && u < 0.95) ? Math.sin(u * Math.PI) * 0.16 : 0;
     } else {
       const cruiseTime = elapsedMs - TAKEOFF_ASCENT_DURATION;
-      const waveBlend = Math.min(cruiseTime / 1250, 1.0);
-      const waveX = (width * 0.1485 * Math.sin(0.0008 * cruiseTime)) * waveBlend;
-      const waveY = (height * 0.1100 * Math.sin(0.0008 * cruiseTime)) * waveBlend;
+      const waveBlend = Math.min(cruiseTime / 1000, 1.0);
+      const waveX = (width * 0.1485 * Math.sin(0.0010 * cruiseTime)) * waveBlend;
+      const waveY = (height * 0.1100 * Math.sin(0.0010 * cruiseTime)) * waveBlend;
       px = targetX + waveX;
       py = targetY + waveY;
-      tilt = (-Math.cos(0.0008 * cruiseTime) * 0.08) * waveBlend;
+      tilt = (-Math.cos(0.0010 * cruiseTime) * 0.08) * waveBlend;
     }
 
     const tipX = px - planeW * 0.16;
@@ -77,11 +77,12 @@ function calculateCrashPoint(hash) {
   return Math.max(1.00, Math.min(PROBABILITY_CONFIG.maxMultiplier, Math.floor(raw * 100) / 100));
 }
 
-const CONSTANT_GROWTH_RATE = 0.05;
-
 function calcInverseTimeMs(m) {
   const num = Math.max(1.00, Number(m) || 1.00);
-  return ((num - 1.00) / CONSTANT_GROWTH_RATE) * 1000;
+  if (num <= 1.2) return ((num - 1) / 0.05) * 1000;
+  if (num <= 3) return (4 + (num - 1.2) / 0.1) * 1000;
+  if (num <= 8) return (22 + (num - 3) / 0.4) * 1000;
+  return (34.5 + (num - 8)) * 1000;
 }
 
 const history = [];

@@ -1,10 +1,12 @@
 import React, { useRef, useEffect } from 'react';
 
-const CONSTANT_GROWTH_RATE = 0.05;
-
+// Exact reference inverse multiplier timing from Aviator-_8Beb6PJ.js
 function calcInverseTimeMs(m) {
   const num = Math.max(1.00, Number(m) || 1.00);
-  return ((num - 1.00) / CONSTANT_GROWTH_RATE) * 1000;
+  if (num <= 1.2) return ((num - 1) / 0.05) * 1000;
+  if (num <= 3) return (4 + (num - 1.2) / 0.1) * 1000;
+  if (num <= 8) return (22 + (num - 3) / 0.4) * 1000;
+  return (34.5 + (num - 8)) * 1000;
 }
 
 export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePos }) {
@@ -21,8 +23,8 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
 
   onPlanePosRef.current = onPlanePos;
 
-  // Reduced visual flying movement speed by 20% (5000 / 0.80 = 6250ms)
-  const FLY_IN_DURATION = 6250;
+  // Exact reference ascent time from Aviator-_8Beb6PJ.js (w = 5e3 = 5000ms)
+  const FLY_IN_DURATION = 5000;
 
   useEffect(() => {
     if (phase === 'flying') {
@@ -90,7 +92,7 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
         }
         ctx.restore();
         if (!isCrashed) {
-          sunburstRotRef.current += 0.0016;
+          sunburstRotRef.current += 0.002;
         }
       }
 
@@ -122,7 +124,7 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
         let waveY = 0;
         let waveX = 0;
         if (waveActiveRef.current) {
-          waveY = height * 0.1 * Math.min(Math.max(elapsed - FLY_IN_DURATION, 0) / 2500, 1.0) * Math.sin(0.0008 * elapsed);
+          waveY = height * 0.1 * Math.min(Math.max(elapsed - FLY_IN_DURATION, 0) / 2000, 1.0) * Math.sin(0.001 * elapsed);
           waveX = (waveY < 0 ? -1 : 1) * Math.abs(waveY * 1.5);
         }
 
@@ -184,8 +186,8 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
         const isOffscreen = pos.x > width + planeW || pos.y < -planeH;
 
         if (!isOffscreen) {
-          pos.x += width * 0.0096;
-          pos.y -= height * 0.008;
+          pos.x += width * 0.012;
+          pos.y -= height * 0.01;
         }
 
         if (onPlanePosRef.current) {
@@ -219,7 +221,7 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
       ctx.fill();
 
       if (isFlying && !isCrashed) {
-        gridDotsHorizRef.current -= 1.36;
+        gridDotsHorizRef.current -= 1.7;
         if (gridDotsHorizRef.current <= -horizSpacing) {
           gridDotsHorizRef.current = 0;
         }
@@ -236,7 +238,7 @@ export default function AviatorCanvas({ phase, multiplier, crashPoint, onPlanePo
       ctx.fill();
 
       if (isFlying && !isCrashed) {
-        gridDotsVertRef.current += 1.36;
+        gridDotsVertRef.current += 1.7;
         if (gridDotsVertRef.current >= vertSpacing) {
           gridDotsVertRef.current = 0;
         }
